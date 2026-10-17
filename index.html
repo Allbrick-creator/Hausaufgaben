@@ -58,19 +58,23 @@ body.lock{overflow:hidden}
 .chip.done .ct{text-decoration:line-through}
 .check{position:relative;flex:none;width:18px;height:18px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;padding:0;margin-top:1px;font-size:11px;font-weight:800;line-height:1;display:grid;place-items:center;cursor:pointer}
 .check::after{content:'';position:absolute;inset:-9px}
+.urg{display:block;flex:none;width:16px;height:16px;margin-top:1px}
+.urg svg{display:block}
 
 /* Tagesansicht (iPhone) */
 .dayview{overflow-y:auto;padding:14px 16px 24px}
 .dayview .dl{padding:0;gap:8px}
 .dayview .chip{font-size:16px;padding:12px 12px;border-radius:10px}
 .dayview .check{width:22px;height:22px;font-size:13px}
+.dayview .urg{width:20px;height:20px}
 .empty{color:var(--muted);text-align:center;padding:40px 0;font-size:15px}
 .today-pill{display:inline-block;background:var(--ink);color:#fff;border-radius:999px;font-size:12px;font-weight:700;padding:2px 9px;margin-left:8px;vertical-align:middle}
 
 /* Fenster zum Bearbeiten */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:10;padding:16px}
 .sheet{background:#fff;width:100%;max-width:580px;max-height:92vh;max-height:92dvh;overflow-y:auto;border-radius:18px;padding:16px 18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-.sheet-top{display:flex;justify-content:space-between;margin-bottom:10px}
+.sheet-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sheet-title{font-size:20px;font-weight:700;letter-spacing:-.2px}
 .m-title{width:100%;border:0;outline:0;font-family:inherit;font-size:24px;font-weight:700;padding:8px 0;border-bottom:1px solid var(--line);margin-bottom:12px;background:transparent;color:var(--ink)}
 .m-desc{width:100%;min-height:150px;border:0;outline:0;resize:vertical;font-family:inherit;font-size:16px;line-height:1.45;background:var(--soft);border-radius:12px;padding:12px;margin-bottom:16px;color:var(--ink)}
 .row{display:flex;gap:12px;margin-bottom:16px}
@@ -78,6 +82,7 @@ body.lock{overflow:hidden}
 .row input[type=date]{font-family:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);min-height:42px;width:100%}
 .opt{display:flex;align-items:center;gap:10px;font-size:16px;padding:8px 0}
 .opt input{width:22px;height:22px;accent-color:#111;margin:0}
+.opt input:disabled{opacity:.5}
 .opt small{color:var(--muted);font-size:13px}
 .colors{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:6px 0 14px}
 .colors .lbl{width:100%;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:-2px}
@@ -86,6 +91,15 @@ body.lock{overflow:hidden}
 .colors input[type=color]{width:34px;height:34px;padding:0;border:1px solid var(--line);border-radius:50%;background:#fff;cursor:pointer}
 .sheet-actions{display:flex;flex-direction:column;gap:10px;margin-top:10px}
 .exam-note{font-size:13px;color:var(--muted);padding:0 0 12px}
+
+/* Einstellungen */
+.set-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.set-item{appearance:none;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:14px;font-family:inherit;font-size:16px;font-weight:600;color:var(--ink);cursor:pointer}
+.set-item:active{background:var(--soft)}
+.set-item small{display:block;font-weight:400;color:var(--muted);font-size:13px;margin-top:3px}
+.set-item .arr{color:var(--muted);font-size:22px;font-weight:400;line-height:1}
+.set-item.danger{color:var(--danger)}
+.set-acc{font-size:13px;color:var(--muted);margin:18px 0 0;text-align:center;word-break:break-all}
 
 /* Login */
 .login{margin:auto;width:100%;max-width:360px;padding:24px;display:flex;flex-direction:column;gap:12px}
@@ -154,6 +168,7 @@ body.lock{overflow:hidden}
       <label>Bis<input type="date" id="m-end"></label>
     </div>
     <label class="opt"><input type="checkbox" id="m-exam"> Prüfung <small>(immer rot, steht oben)</small></label>
+    <label class="opt"><input type="checkbox" id="m-urgent"> Dringlich <small id="m-urgent-note">(mit Warnzeichen, steht weiter oben)</small></label>
     <div class="colors" id="m-colorrow">
       <div class="lbl">Farbe</div>
       <div id="m-swatches" style="display:contents"></div>
@@ -177,6 +192,20 @@ body.lock{overflow:hidden}
   </div>
 </div>
 
+<div id="settings" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="Einstellungen">
+    <div class="sheet-top">
+      <div class="sheet-title">Einstellungen</div>
+      <button class="btn" id="s-close" type="button">Fertig</button>
+    </div>
+    <div class="set-list">
+      <button class="set-item" id="s-import" type="button"><span>Aus Datei importieren<small>Excel, Word oder Screenshots</small></span><span class="arr">›</span></button>
+      <button class="set-item danger" id="s-logout" type="button"><span>Abmelden</span></button>
+    </div>
+    <div class="set-acc" id="s-acc"></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL = 'https://onmqftyswdatkxirmmpf.supabase.co';
@@ -197,11 +226,14 @@ const dayNum = s => { const [y, m, d] = s.split('-').map(Number); return Math.ro
 // Woche beginnt am Samstag und endet am Freitag
 const weekStart = s => addDays(s, -((parse(s).getDay() + 1) % 7));
 function occursOn(t, date) {
+  if (!t.start_date || !t.end_date) return false;
   const s = dayNum(t.start_date), e = dayNum(t.end_date), d = dayNum(date);
   const len = e - s + 1;
   if (!t.repeat_weekly) return d >= s && d <= e;
   return d >= s && ((d - s) % 7) < Math.min(len, 7);
 }
+// Prüfungen sind immer dringlich
+const isUrgent = t => !!(t.is_exam || t.is_urgent);
 function safeColor(c) { return /^#[0-9a-fA-F]{6}$/.test(c) ? c : PALETTE[0]; }
 function textOn(hex) {
   const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
@@ -232,6 +264,17 @@ function toast(msg) {
 }
 const isMobile = () => window.innerWidth < 700;
 
+// Gezeichnetes Warndreieck: Dreieck in Textfarbe, «!» in Feldfarbe
+function urgentIcon(bg, fg) {
+  const s = el('span', { class: 'urg', role: 'img', 'aria-label': 'Dringlich' });
+  s.innerHTML = '<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">' +
+    '<path d="M12 2.6c.6 0 1.1.3 1.4.8l9.4 16.4c.6 1.1-.2 2.4-1.4 2.4H2.6c-1.2 0-2-1.3-1.4-2.4l9.4-16.4c.3-.5.8-.8 1.4-.8z" fill="' + fg + '"/>' +
+    '<path d="M12 8.8v5.6" stroke="' + bg + '" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<circle cx="12" cy="18" r="1.5" fill="' + bg + '"/></svg>';
+  return s;
+}
+const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+
 /* ---------- Daten ---------- */
 async function loadData() {
   const [t, c] = await Promise.all([
@@ -240,7 +283,7 @@ async function loadData() {
   ]);
   if (t.error || c.error) { toast('Fehler beim Laden: ' + (t.error || c.error).message); return; }
   tasks = t.data;
-  done = new Set(c.data.map(r => r.task_id + '|' + r.date));
+  done = new Set(c.data.filter(r => !r.kind || r.kind === 'due').map(r => r.task_id + '|' + r.date));
   renderApp();
 }
 async function toggleDone(id, date) {
@@ -248,30 +291,33 @@ async function toggleDone(id, date) {
   let error;
   if (done.has(key)) {
     done.delete(key); renderApp();
-    ({ error } = await sb.from('task_completions').delete().eq('task_id', id).eq('date', date));
+    ({ error } = await sb.from('task_completions').delete().eq('task_id', id).eq('date', date).eq('kind', 'due'));
   } else {
     done.add(key); renderApp();
-    ({ error } = await sb.from('task_completions').insert({ task_id: id, date }));
+    ({ error } = await sb.from('task_completions').insert({ task_id: id, date, kind: 'due' }));
   }
   if (error) { toast('Fehler: ' + error.message); loadData(); }
 }
+// Reihenfolge: Prüfungen, dann dringlich, dann der Rest
 function tasksOn(date) {
   return tasks.filter(t => occursOn(t, date))
-    .sort((a, b) => (b.is_exam - a.is_exam) || a.created_at.localeCompare(b.created_at));
+    .sort((a, b) => (b.is_exam - a.is_exam) || (isUrgent(b) - isUrgent(a)) || a.created_at.localeCompare(b.created_at));
 }
 
 /* ---------- Anzeige ---------- */
 function chip(t, date) {
   const isDone = done.has(t.id + '|' + date);
   const color = t.is_exam ? EXAM : safeColor(t.color);
+  const fg = textOn(color);
   return el('div', {
     class: 'chip' + (isDone ? ' done' : ''), role: 'button', tabindex: '0',
-    style: 'background:' + color + ';color:' + textOn(color),
+    style: 'background:' + color + ';color:' + fg,
     onclick: () => openModal(t, date)
   },
     el('button', { class: 'check', type: 'button', 'aria-label': 'Erledigt', text: isDone ? '✓' : '',
       onclick: ev => { ev.stopPropagation(); toggleDone(t.id, date); } }),
-    el('span', { class: 'ct', text: t.title })
+    el('span', { class: 'ct', text: t.title }),
+    isUrgent(t) ? urgentIcon(color, fg) : null
   );
 }
 function newTaskDate() {
@@ -436,6 +482,8 @@ function renderApp() {
   app.replaceChildren();
 
   titleEl = el('h1', { text: titleFor(cur) });
+  const gear = el('button', { class: 'btn ghost icon-btn', type: 'button', 'aria-label': 'Einstellungen', onclick: openSettings });
+  gear.innerHTML = GEAR_SVG;
   app.append(el('div', { class: 'bar' },
     el('div', { class: 'group' },
       el('button', { class: 'btn ghost icon-btn', type: 'button', 'aria-label': 'Zurück', text: '‹', onclick: () => go(-1) }),
@@ -443,9 +491,8 @@ function renderApp() {
     titleEl,
     el('div', { class: 'group' },
       el('button', { class: 'btn ghost', type: 'button', text: 'Heute', onclick: () => navigateTo(todayStr()) }),
-      el('button', { class: 'btn ghost', type: 'button', text: 'Import', onclick: openImport }),
       el('button', { class: 'btn', type: 'button', text: '+ Neu', onclick: () => openModal(null, newTaskDate()) }),
-      el('button', { class: 'btn ghost', type: 'button', text: 'Abmelden', onclick: () => sb.auth.signOut() }))
+      gear)
   ));
 
   const pager = el('div', { class: 'pager' }, buildView(cur));
@@ -471,20 +518,50 @@ function renderLogin() {
   app.append(form);
 }
 
+/* ---------- Einstellungen ---------- */
+function openSettings() {
+  $('#s-acc').textContent = session && session.user && session.user.email ? 'Angemeldet als ' + session.user.email : '';
+  $('#settings').hidden = false;
+  document.body.classList.add('lock');
+  $('#settings .sheet').scrollTop = 0;
+}
+function closeSettings() {
+  $('#settings').hidden = true;
+  document.body.classList.remove('lock');
+}
+
 /* ---------- Fenster zum Bearbeiten ---------- */
+let urgentPrev = false;
 function setColor(c) {
   currentColor = safeColor(c);
   $('#m-custom').value = currentColor;
   document.querySelectorAll('#m-swatches .sw').forEach(b => b.classList.toggle('sel', b.dataset.c.toLowerCase() === currentColor.toLowerCase()));
 }
-function updateExamUI() { $('#m-colorrow').hidden = $('#m-exam').checked; }
+// Bei Prüfungen: keine Farbwahl, «Dringlich» fest eingeschaltet
+function updateExamUI() {
+  const exam = $('#m-exam').checked, u = $('#m-urgent');
+  $('#m-colorrow').hidden = exam;
+  if (exam) {
+    if (!u.disabled) urgentPrev = u.checked;
+    u.checked = true;
+    u.disabled = true;
+    $('#m-urgent-note').textContent = '(Prüfungen sind immer dringlich)';
+  } else {
+    if (u.disabled) u.checked = urgentPrev;
+    u.disabled = false;
+    $('#m-urgent-note').textContent = '(mit Warnzeichen, steht weiter oben)';
+  }
+}
 function openModal(t, date) {
   editing = { task: t, date };
   $('#m-title').value = t ? t.title : '';
   $('#m-desc').value = t ? t.description : '';
-  $('#m-start').value = t ? t.start_date : date;
-  $('#m-end').value = t ? t.end_date : date;
+  $('#m-start').value = t ? (t.start_date || date) : date;
+  $('#m-end').value = t ? (t.end_date || date) : date;
   $('#m-exam').checked = t ? t.is_exam : false;
+  $('#m-urgent').disabled = false;
+  $('#m-urgent').checked = t ? !!t.is_urgent : false;
+  urgentPrev = $('#m-urgent').checked;
   $('#m-repeat').checked = t ? t.repeat_weekly : false;
   setColor(t ? t.color : PALETTE[0]);
   updateExamUI();
@@ -493,7 +570,7 @@ function openModal(t, date) {
   if (t) $('#m-done').textContent = done.has(t.id + '|' + date) ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren';
   $('#modal').hidden = false;
   document.body.classList.add('lock');
-  $('.sheet').scrollTop = 0;
+  $('#modal .sheet').scrollTop = 0;
   if (!t) setTimeout(() => $('#m-title').focus(), 60);
 }
 function closeModal() {
@@ -508,10 +585,12 @@ async function saveTask() {
   if (!s) { toast('Bitte ein Startdatum wählen'); return; }
   let e = $('#m-end').value || s;
   if (e < s) e = s;
+  const isExam = $('#m-exam').checked;
   const payload = {
     title, description: $('#m-desc').value, color: currentColor,
     start_date: s, end_date: e,
-    is_exam: $('#m-exam').checked, repeat_weekly: $('#m-repeat').checked
+    is_exam: isExam, is_urgent: isExam || $('#m-urgent').checked,
+    repeat_weekly: $('#m-repeat').checked
   };
   const btn = $('#m-save');
   btn.disabled = true;
@@ -701,7 +780,7 @@ async function impRun() {
       const p = {
         title: String(t.title || ''), description: String(t.description || ''),
         start_date: t.start_date || null, end_date: t.end_date || t.start_date || null,
-        is_exam: !!t.is_exam, repeat_weekly: !!t.repeat_weekly
+        is_exam: !!t.is_exam, is_urgent: !!t.is_urgent, repeat_weekly: !!t.repeat_weekly
       };
       p.miss = !p.start_date;
       p.dup = impDup(p);
@@ -746,8 +825,12 @@ function propRow(p) {
     impUpdateCount();
   });
   e.addEventListener('change', () => { p.end_date = e.value || null; });
+  const ur = el('input', { type: 'checkbox' });
+  const syncUrgent = () => { ur.checked = p.is_exam || p.is_urgent; ur.disabled = p.is_exam; };
+  ur.addEventListener('change', () => { p.is_urgent = ur.checked; });
   const ex = el('input', { type: 'checkbox' }); ex.checked = p.is_exam;
-  ex.addEventListener('change', () => { p.is_exam = ex.checked; });
+  ex.addEventListener('change', () => { p.is_exam = ex.checked; syncUrgent(); });
+  syncUrgent();
   const rp = el('input', { type: 'checkbox' }); rp.checked = p.repeat_weekly;
   rp.addEventListener('change', () => { p.repeat_weekly = rp.checked; });
   const missBadge = p.miss && !p.start_date ? el('div', { class: 'badge', text: 'Datum fehlt – bitte wählen' }) : null;
@@ -759,6 +842,7 @@ function propRow(p) {
     el('div', { class: 'row' }, el('label', null, 'Von', s), el('label', null, 'Bis', e)),
     el('div', { class: 'opts' },
       el('label', { class: 'opt' }, ex, 'Prüfung'),
+      el('label', { class: 'opt' }, ur, 'Dringlich'),
       el('label', { class: 'opt' }, rp, 'Jede Woche'))
   ].forEach(n => { if (n) row.append(n); });
   return row;
@@ -854,7 +938,7 @@ async function impSave() {
   const rows = sel.map(p => ({
     title: p.title.trim().slice(0, 120), description: p.description || '', color: impColor,
     start_date: p.start_date, end_date: (p.end_date && p.end_date >= p.start_date) ? p.end_date : p.start_date,
-    is_exam: !!p.is_exam, repeat_weekly: !!p.repeat_weekly
+    is_exam: !!p.is_exam, is_urgent: !!(p.is_exam || p.is_urgent), repeat_weekly: !!p.repeat_weekly
   }));
   const btn = $('#imp-go');
   btn.disabled = true;
@@ -869,6 +953,10 @@ async function impSave() {
 }
 
 /* ---------- Start ---------- */
+$('#s-close').addEventListener('click', closeSettings);
+$('#s-import').addEventListener('click', () => { closeSettings(); openImport(); });
+$('#s-logout').addEventListener('click', () => { closeSettings(); sb.auth.signOut(); });
+$('#settings').addEventListener('click', ev => { if (ev.target.id === 'settings') closeSettings(); });
 $('#imp-close').addEventListener('click', () => {
   if (impStage === 'review') { impStage = 'pick'; impRender(); } else closeImport();
 });
@@ -893,7 +981,11 @@ $('#m-done').addEventListener('click', async () => {
   toggleDone(task.id, date);
 });
 $('#modal').addEventListener('click', ev => { if (ev.target.id === 'modal') closeModal(); });
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !$('#modal').hidden) closeModal(); });
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Escape') return;
+  if (!$('#modal').hidden) closeModal();
+  else if (!$('#settings').hidden) closeSettings();
+});
 window.addEventListener('resize', () => { if (session && lastMobile !== isMobile()) renderApp(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && session && !editing) loadData(); });
 
