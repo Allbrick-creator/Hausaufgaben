@@ -534,7 +534,7 @@ async function deleteTask() {
 /* ---------- Import aus Dateien ---------- */
 // Excel und Word werden im Browser gelesen, Screenshots verkleinert. Der Inhalt geht an die
 // Supabase-Funktion «import-tasks», die Claude fragt. Gespeichert wird erst nach deiner Kontrolle.
-const IMP_FN = 'import-tasks';
+const IMP_FN = 'quick-processor';
 const IMP_MAX_FILES = 8, IMP_MAX_IMAGES = 5, IMP_MAX_TEXT = 60000, IMP_MAX_BYTES = 15 * 1024 * 1024;
 const LIB_URLS = {
   xlsx: 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
@@ -665,7 +665,7 @@ async function impAddFiles(list) {
 async function fnErrorText(error) {
   const r = error && error.context;
   if (r && typeof r.json === 'function') {
-    if (r.status === 404) return 'Die Funktion «import-tasks» ist bei Supabase noch nicht eingerichtet.';
+    if (r.status === 404) return 'Die Funktion «quick-processor» ist bei Supabase nicht erreichbar (nicht gefunden).';
     if (r.status === 401) {
       try { const j = await r.clone().json(); if (j && j.error) return j.error; } catch (e) {}
       return 'Die Anmeldung wurde abgelehnt (Code 401). Bitte neu anmelden. Hilft das nicht: In Supabase bei der Funktion «Verify JWT» ausschalten.';
