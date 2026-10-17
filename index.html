@@ -100,6 +100,24 @@ body.lock{overflow:hidden}
 .set-item .arr{color:var(--muted);font-size:22px;font-weight:400;line-height:1}
 .set-item.danger{color:var(--danger)}
 .set-acc{font-size:13px;color:var(--muted);margin:18px 0 0;text-align:center;word-break:break-all}
+.set-h{font-size:22px;font-weight:700;margin:6px 0 4px;letter-spacing:-.2px}
+.set-help{font-size:14px;line-height:1.45;color:var(--muted);margin:0 0 14px}
+.trow{display:flex;align-items:center;gap:12px;min-width:0}
+.trow .dot{width:18px;height:18px;border-radius:50%;flex:none}
+.set-item.static{cursor:default}
+.set-item.static:active{background:#fff}
+.t-input{width:100%;font-family:inherit;font-size:17px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;color:var(--ink);background:#fff;outline:0}
+.t-input:focus{border-color:var(--ink)}
+.t-actions{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+
+/* Typ-Auswahl */
+.flabel{font-size:13px;font-weight:600;color:var(--muted);margin:2px 0 8px}
+.tsel{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.tchip{appearance:none;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:8px 14px 8px 10px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;line-height:1.1}
+.tchip .dot{width:14px;height:14px;border-radius:50%;flex:none}
+.tchip.sel{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.tchip.sel .dot{background:currentColor!important;width:10px;height:10px;margin:2px}
+.tchip.none{padding-left:14px}
 
 /* Login */
 .login{margin:auto;width:100%;max-width:360px;padding:24px;display:flex;flex-direction:column;gap:12px}
@@ -167,13 +185,14 @@ body.lock{overflow:hidden}
       <label>Von<input type="date" id="m-start"></label>
       <label>Bis<input type="date" id="m-end"></label>
     </div>
-    <label class="opt"><input type="checkbox" id="m-exam"> Prüfung <small>(immer rot, steht oben)</small></label>
-    <label class="opt"><input type="checkbox" id="m-urgent"> Dringlich <small id="m-urgent-note">(mit Warnzeichen, steht weiter oben)</small></label>
+    <div class="flabel">Typ</div>
+    <div class="tsel" id="m-types"></div>
     <div class="colors" id="m-colorrow">
-      <div class="lbl">Farbe</div>
+      <div class="lbl">Farbe (ohne Typ)</div>
       <div id="m-swatches" style="display:contents"></div>
       <input type="color" id="m-custom" aria-label="Eigene Farbe wählen">
     </div>
+    <label class="opt"><input type="checkbox" id="m-urgent"> Dringlich <small id="m-urgent-note">(mit Warnzeichen, steht weiter oben)</small></label>
     <label class="opt"><input type="checkbox" id="m-repeat"> Jede Woche wiederholen <small>(bis du die Aufgabe löschst)</small></label>
     <div class="sheet-actions">
       <button class="btn ghost" id="m-done" type="button" hidden></button>
@@ -193,17 +212,7 @@ body.lock{overflow:hidden}
 </div>
 
 <div id="settings" class="overlay" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-label="Einstellungen">
-    <div class="sheet-top">
-      <div class="sheet-title">Einstellungen</div>
-      <button class="btn" id="s-close" type="button">Fertig</button>
-    </div>
-    <div class="set-list">
-      <button class="set-item" id="s-import" type="button"><span>Aus Datei importieren<small>Excel, Word oder Screenshots</small></span><span class="arr">›</span></button>
-      <button class="set-item danger" id="s-logout" type="button"><span>Abmelden</span></button>
-    </div>
-    <div class="set-acc" id="s-acc"></div>
-  </div>
+  <div class="sheet" id="s-sheet" role="dialog" aria-modal="true" aria-label="Einstellungen"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -243,7 +252,20 @@ function textOn(hex) {
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
-let session = null, tasks = [], done = new Set(), cur = todayStr(), editing = null, currentColor = PALETTE[0], lastMobile = null;
+let session = null, tasks = [], types = [], done = new Set(), cur = todayStr(), editing = null, currentColor = PALETTE[0], lastMobile = null;
+
+/* ---------- Typen ---------- */
+const sameC = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
+const typeById = id => id ? types.find(x => x.id === id) : null;
+const typeOfColor = c => types.find(x => sameC(x.color, c));
+// Farben, die keinem Typ gehören (Rot ist für Prüfungen reserviert)
+const freeColors = () => PALETTE.filter(c => !typeOfColor(c));
+// Farbe, in der eine Aufgabe angezeigt wird
+function effColor(t) {
+  if (t.is_exam) return EXAM;
+  const ty = typeById(t.type_id);
+  return ty ? safeColor(ty.color) : safeColor(t.color);
+}
 
 function el(tag, props, ...kids) {
   const e = document.createElement(tag);
@@ -277,12 +299,15 @@ const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" st
 
 /* ---------- Daten ---------- */
 async function loadData() {
-  const [t, c] = await Promise.all([
+  const [t, c, ty] = await Promise.all([
     sb.from('tasks').select('*').order('created_at'),
-    sb.from('task_completions').select('*')
+    sb.from('task_completions').select('*'),
+    sb.from('task_types').select('*').order('sort').order('created_at')
   ]);
-  if (t.error || c.error) { toast('Fehler beim Laden: ' + (t.error || c.error).message); return; }
+  const err = t.error || c.error || ty.error;
+  if (err) { toast('Fehler beim Laden: ' + err.message); return; }
   tasks = t.data;
+  types = ty.data;
   done = new Set(c.data.filter(r => !r.kind || r.kind === 'due').map(r => r.task_id + '|' + r.date));
   renderApp();
 }
@@ -307,7 +332,7 @@ function tasksOn(date) {
 /* ---------- Anzeige ---------- */
 function chip(t, date) {
   const isDone = done.has(t.id + '|' + date);
-  const color = t.is_exam ? EXAM : safeColor(t.color);
+  const color = effColor(t);
   const fg = textOn(color);
   return el('div', {
     class: 'chip' + (isDone ? ' done' : ''), role: 'button', tabindex: '0',
@@ -519,28 +544,182 @@ function renderLogin() {
 }
 
 /* ---------- Einstellungen ---------- */
+let setPage = 'main', typeEdit = null, typeBusy = false;
 function openSettings() {
-  $('#s-acc').textContent = session && session.user && session.user.email ? 'Angemeldet als ' + session.user.email : '';
+  setPage = 'main'; typeEdit = null;
+  renderSettings();
   $('#settings').hidden = false;
   document.body.classList.add('lock');
-  $('#settings .sheet').scrollTop = 0;
 }
 function closeSettings() {
   $('#settings').hidden = true;
   document.body.classList.remove('lock');
+  setPage = 'main'; typeEdit = null;
+}
+const dot = c => el('span', { class: 'dot', style: 'background:' + c });
+function renderSettings() {
+  const sh = $('#s-sheet');
+  sh.replaceChildren();
+  sh.scrollTop = 0;
+  if (setPage === 'main') {
+    sh.append(
+      el('div', { class: 'sheet-top' },
+        el('div', { class: 'sheet-title', text: 'Einstellungen' }),
+        el('button', { class: 'btn', type: 'button', text: 'Fertig', onclick: closeSettings })),
+      el('div', { class: 'set-list' },
+        el('button', { class: 'set-item', type: 'button', onclick: () => { setPage = 'types'; renderSettings(); } },
+          el('span', null, 'Aufgabentypen', el('small', { text: types.length === 1 ? '1 eigener Typ' : types.length + ' eigene Typen' })),
+          el('span', { class: 'arr', text: '›' })),
+        el('button', { class: 'set-item', type: 'button', onclick: () => { closeSettings(); openImport(); } },
+          el('span', null, 'Aus Datei importieren', el('small', { text: 'Excel, Word oder Screenshots' })),
+          el('span', { class: 'arr', text: '›' })),
+        el('button', { class: 'set-item danger', type: 'button', onclick: () => { closeSettings(); sb.auth.signOut(); } },
+          el('span', { text: 'Abmelden' }))),
+      el('div', { class: 'set-acc', text: session && session.user && session.user.email ? 'Angemeldet als ' + session.user.email : '' }));
+    return;
+  }
+  if (typeEdit) { renderTypeEditor(sh); return; }
+  // Liste der Typen
+  sh.append(
+    el('div', { class: 'sheet-top' },
+      el('button', { class: 'btn ghost', type: 'button', text: '‹ Zurück', onclick: () => { setPage = 'main'; renderSettings(); } }),
+      el('button', { class: 'btn', type: 'button', text: 'Fertig', onclick: closeSettings })),
+    el('div', { class: 'set-h', text: 'Aufgabentypen' }),
+    el('p', { class: 'set-help', text: 'Jeder Typ hat eine eigene Farbe. Eine Farbe, die zu einem Typ gehört, kann man nicht mehr frei wählen.' }));
+  const list = el('div', { class: 'set-list' },
+    el('div', { class: 'set-item static' },
+      el('span', { class: 'trow' }, dot(EXAM), el('span', null, 'Prüfung', el('small', { text: 'Fest: immer rot, dringlich und ganz oben' })))));
+  types.forEach(t => {
+    const n = tasks.filter(x => x.type_id === t.id).length;
+    list.append(el('button', { class: 'set-item', type: 'button', onclick: () => { typeEdit = { id: t.id, name: t.name, color: t.color }; renderSettings(); } },
+      el('span', { class: 'trow' }, dot(safeColor(t.color)), el('span', null, t.name, el('small', { text: n === 1 ? '1 Aufgabe' : n + ' Aufgaben' }))),
+      el('span', { class: 'arr', text: '›' })));
+  });
+  sh.append(list, el('div', { class: 't-actions' },
+    el('button', { class: 'btn', type: 'button', text: '+ Neuer Typ', onclick: () => {
+      typeEdit = { id: null, name: '', color: freeColors()[0] || '#5856D6' };
+      renderSettings();
+    } })));
+}
+function renderTypeEditor(sh) {
+  const te = typeEdit;
+  const others = types.filter(t => t.id !== te.id);
+  const takenBy = c => others.find(t => sameC(t.color, c));
+  const name = el('input', { class: 't-input', maxlength: '40', placeholder: 'Name, z. B. Lernen', autocomplete: 'off', 'aria-label': 'Name des Typs' });
+  name.value = te.name;
+  name.addEventListener('input', () => { te.name = name.value; });
+  const colors = el('div', { class: 'colors' }, el('div', { class: 'lbl', text: 'Farbe' }));
+  const custom = el('input', { type: 'color', 'aria-label': 'Eigene Farbe wählen' });
+  const info = el('p', { class: 'set-help', style: 'margin:0 0 6px' });
+  const mark = () => {
+    colors.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', sameC(b.dataset.c, te.color)));
+    custom.value = safeColor(te.color);
+    const n = tasks.filter(t => !t.is_exam && !t.type_id && sameC(t.color, te.color)).length;
+    info.textContent = !n ? '' : n === 1 ? '1 bestehende Aufgabe in dieser Farbe bekommt den Typ automatisch.'
+      : n + ' bestehende Aufgaben in dieser Farbe bekommen den Typ automatisch.';
+  };
+  const pick = c => {
+    if (sameC(c, EXAM)) { toast('Rot ist für Prüfungen reserviert'); mark(); return; }
+    const t = takenBy(c);
+    if (t) { toast('Diese Farbe gehört schon zum Typ «' + t.name + '»'); mark(); return; }
+    te.color = c; mark();
+  };
+  PALETTE.filter(c => !takenBy(c)).forEach(c => colors.append(el('button', { class: 'sw', type: 'button', 'data-c': c, 'aria-label': 'Farbe ' + c, style: 'background:' + c, onclick: () => pick(c) })));
+  custom.addEventListener('change', () => pick(custom.value));
+  colors.append(custom);
+  sh.append(
+    el('div', { class: 'sheet-top' },
+      el('button', { class: 'btn ghost', type: 'button', text: 'Abbrechen', onclick: () => { typeEdit = null; renderSettings(); } }),
+      el('button', { class: 'btn', type: 'button', text: 'Speichern', onclick: saveType })),
+    el('div', { class: 'set-h', text: te.id ? 'Typ bearbeiten' : 'Neuer Typ' }),
+    name, colors, info);
+  if (te.id) sh.append(el('div', { class: 't-actions' },
+    el('button', { class: 'btn danger', type: 'button', text: 'Typ löschen', onclick: deleteType })));
+  mark();
+  if (!te.id) setTimeout(() => name.focus(), 60);
+}
+async function saveType() {
+  if (typeBusy) return;
+  const te = typeEdit, name = te.name.trim(), color = safeColor(te.color);
+  if (!name) { toast('Bitte einen Namen eingeben'); return; }
+  if (sameC(color, EXAM)) { toast('Rot ist für Prüfungen reserviert'); return; }
+  if (types.some(t => t.id !== te.id && sameC(t.color, color))) { toast('Diese Farbe gehört schon zu einem anderen Typ'); return; }
+  typeBusy = true;
+  try {
+    let id = te.id;
+    if (id) {
+      const { error } = await sb.from('task_types').update({ name, color }).eq('id', id);
+      if (error) throw error;
+      // Ersatzfarbe der Aufgaben mitziehen (falls der Typ später gelöscht wird)
+      const r = await sb.from('tasks').update({ color }).eq('type_id', id);
+      if (r.error) throw r.error;
+    } else {
+      const { data, error } = await sb.from('task_types').insert({ name, color, sort: types.length }).select();
+      if (error) throw error;
+      id = data[0].id;
+    }
+    // Aufgaben ohne Typ in dieser Farbe bekommen den Typ
+    const ids = tasks.filter(t => !t.is_exam && !t.type_id && sameC(t.color, color)).map(t => t.id);
+    if (ids.length) {
+      const r = await sb.from('tasks').update({ type_id: id, color }).in('id', ids);
+      if (r.error) throw r.error;
+      toast(ids.length === 1 ? '1 Aufgabe hat den Typ «' + name + '» bekommen' : ids.length + ' Aufgaben haben den Typ «' + name + '» bekommen');
+    }
+    typeEdit = null;
+    await loadData();
+    renderSettings();
+  } catch (e) {
+    toast(e.code === '23505' ? 'Diese Farbe gehört schon zu einem anderen Typ' : 'Fehler beim Speichern: ' + e.message);
+  } finally { typeBusy = false; }
+}
+async function deleteType() {
+  const te = typeEdit, n = tasks.filter(t => t.type_id === te.id).length;
+  const msg = 'Typ «' + (te.name.trim() || 'ohne Namen') + '» löschen?' +
+    (n ? ' ' + (n === 1 ? '1 Aufgabe behält' : n + ' Aufgaben behalten') + ' die Farbe, hat dann aber keinen Typ mehr.' : '');
+  if (!confirm(msg)) return;
+  const { error } = await sb.from('task_types').delete().eq('id', te.id);
+  if (error) { toast('Fehler beim Löschen: ' + error.message); return; }
+  typeEdit = null;
+  await loadData();
+  renderSettings();
 }
 
 /* ---------- Fenster zum Bearbeiten ---------- */
-let urgentPrev = false;
+let urgentPrev = false, selType = '';   // selType: 'exam', Typ-ID oder '' (ohne Typ)
 function setColor(c) {
   currentColor = safeColor(c);
   $('#m-custom').value = currentColor;
-  document.querySelectorAll('#m-swatches .sw').forEach(b => b.classList.toggle('sel', b.dataset.c.toLowerCase() === currentColor.toLowerCase()));
+  document.querySelectorAll('#m-swatches .sw').forEach(b => b.classList.toggle('sel', sameC(b.dataset.c, currentColor)));
 }
-// Bei Prüfungen: keine Farbwahl, «Dringlich» fest eingeschaltet
+// Freie Farbe gewählt: gehört sie einem Typ, wird dieser Typ gewählt
+function pickFreeColor(c) {
+  if (sameC(c, EXAM)) { toast('Rot ist für Prüfungen reserviert'); setColor(currentColor); return; }
+  const t = typeOfColor(c);
+  if (t) { toast('Diese Farbe gehört zum Typ «' + t.name + '». Typ gewählt.'); chooseType(t.id); setColor(currentColor); return; }
+  setColor(c);
+}
+function renderSwatches() {
+  const box = $('#m-swatches');
+  box.replaceChildren(...freeColors().map(c => el('button', { class: 'sw', type: 'button', 'data-c': c, 'aria-label': 'Farbe ' + c, style: 'background:' + c, onclick: () => pickFreeColor(c) })));
+}
+// Typ-Knöpfe: Prüfung, eigene Typen, ohne Typ
+function typeChips(current, onPick, withExam) {
+  const opts = (withExam ? [['exam', 'Prüfung', EXAM]] : []).concat(types.map(t => [t.id, t.name, safeColor(t.color)]), [['', 'Ohne Typ', null]]);
+  return opts.map(([v, name, c]) => {
+    const sel = current === v;
+    return el('button', {
+      class: 'tchip' + (sel ? ' sel' : '') + (c ? '' : ' none'), type: 'button', 'aria-pressed': sel ? 'true' : 'false',
+      style: sel && c ? 'background:' + c + ';border-color:' + c + ';box-shadow:none;color:' + textOn(c) : '',
+      onclick: () => onPick(v)
+    }, c ? dot(c) : null, name);
+  });
+}
+function renderTypeSel() { $('#m-types').replaceChildren(...typeChips(selType, chooseType, true)); }
+function chooseType(v) { selType = v; renderTypeSel(); updateExamUI(); }
+// Bei Prüfungen: «Dringlich» fest eingeschaltet. Farbwahl nur ohne Typ.
 function updateExamUI() {
-  const exam = $('#m-exam').checked, u = $('#m-urgent');
-  $('#m-colorrow').hidden = exam;
+  const exam = selType === 'exam', u = $('#m-urgent');
+  $('#m-colorrow').hidden = selType !== '';
   if (exam) {
     if (!u.disabled) urgentPrev = u.checked;
     u.checked = true;
@@ -558,12 +737,15 @@ function openModal(t, date) {
   $('#m-desc').value = t ? t.description : '';
   $('#m-start').value = t ? (t.start_date || date) : date;
   $('#m-end').value = t ? (t.end_date || date) : date;
-  $('#m-exam').checked = t ? t.is_exam : false;
+  selType = t ? (t.is_exam ? 'exam' : (typeById(t.type_id) ? t.type_id : '')) : '';
   $('#m-urgent').disabled = false;
   $('#m-urgent').checked = t ? !!t.is_urgent : false;
   urgentPrev = $('#m-urgent').checked;
   $('#m-repeat').checked = t ? t.repeat_weekly : false;
-  setColor(t ? t.color : PALETTE[0]);
+  renderSwatches();
+  const own = t && !typeOfColor(t.color) && !sameC(t.color, EXAM) ? t.color : null;
+  setColor(own || freeColors()[0] || PALETTE[0]);
+  renderTypeSel();
   updateExamUI();
   $('#m-delete').hidden = !t;
   $('#m-done').hidden = !t;
@@ -585,9 +767,12 @@ async function saveTask() {
   if (!s) { toast('Bitte ein Startdatum wählen'); return; }
   let e = $('#m-end').value || s;
   if (e < s) e = s;
-  const isExam = $('#m-exam').checked;
+  const isExam = selType === 'exam';
+  const ty = isExam ? null : typeById(selType);
   const payload = {
-    title, description: $('#m-desc').value, color: currentColor,
+    title, description: $('#m-desc').value,
+    type_id: ty ? ty.id : null,
+    color: ty ? ty.color : currentColor,
     start_date: s, end_date: e,
     is_exam: isExam, is_urgent: isExam || $('#m-urgent').checked,
     repeat_weekly: $('#m-repeat').checked
@@ -620,7 +805,7 @@ const LIB_URLS = {
   mammoth: 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js'
 };
 let impStage = 'pick', impFiles = [], impProps = [], impHint = '', impError = '', impNote = '';
-let impModel = 'haiku', impColor = PALETTE[0], impRunId = 0, impReading = 0, impUid = 0;
+let impModel = 'haiku', impColor = PALETTE[0], impType = '', impRunId = 0, impReading = 0, impUid = 0;
 const libLoads = {};
 
 function loadLib(name) {
@@ -865,18 +1050,30 @@ function impRender() {
       return;
     }
     body.append(el('div', { class: 'imp-sec', text: impProps.length === 1 ? '1 Vorschlag – bitte prüfen' : impProps.length + ' Vorschläge – bitte prüfen' }));
-    const colors = el('div', { class: 'colors' }, el('div', { class: 'lbl', text: 'Farbe für alle (Prüfungen bleiben rot)' }));
+    if (impType && !typeById(impType)) impType = '';
+    if (typeOfColor(impColor) || sameC(impColor, EXAM)) impColor = freeColors()[0] || PALETTE[0];
+    const tsel = el('div', { class: 'tsel' });
+    const colors = el('div', { class: 'colors' }, el('div', { class: 'lbl', text: 'Farbe' }));
+    const custom = el('input', { type: 'color', 'aria-label': 'Eigene Farbe wählen' });
     const setC = c => {
+      if (sameC(c, EXAM)) { toast('Rot ist für Prüfungen reserviert'); c = impColor; }
+      const t = typeOfColor(c);
+      if (t) { toast('Diese Farbe gehört zum Typ «' + t.name + '». Typ gewählt.'); setT(t.id); return; }
       impColor = safeColor(c);
-      colors.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', b.dataset.c.toLowerCase() === impColor.toLowerCase()));
+      colors.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', sameC(b.dataset.c, impColor)));
       custom.value = impColor;
     };
-    const custom = el('input', { type: 'color', 'aria-label': 'Eigene Farbe wählen' });
-    custom.addEventListener('input', () => setC(custom.value));
-    PALETTE.forEach(c => colors.append(el('button', { class: 'sw', type: 'button', 'data-c': c, 'aria-label': 'Farbe ' + c, style: 'background:' + c, onclick: () => setC(c) })));
+    const setT = v => {
+      impType = v;
+      tsel.replaceChildren(...typeChips(impType, setT, false));
+      colors.hidden = !!impType;
+    };
+    custom.addEventListener('change', () => setC(custom.value));
+    freeColors().forEach(c => colors.append(el('button', { class: 'sw', type: 'button', 'data-c': c, 'aria-label': 'Farbe ' + c, style: 'background:' + c, onclick: () => setC(c) })));
     colors.append(custom);
     setC(impColor);
-    body.append(colors);
+    setT(impType);
+    body.append(el('div', { class: 'flabel', text: 'Typ für alle (Prüfungen bleiben Prüfungen)' }), tsel, colors);
     impProps.forEach(p => body.append(propRow(p)));
     impUpdateCount();
     return;
@@ -935,8 +1132,11 @@ async function impSave() {
     if (!p.title.trim()) { toast('Eine Aufgabe hat keinen Titel'); return; }
     if (!p.start_date) { toast('Bitte bei «' + p.title.trim() + '» ein Datum wählen'); return; }
   }
+  const ty = typeById(impType);
   const rows = sel.map(p => ({
-    title: p.title.trim().slice(0, 120), description: p.description || '', color: impColor,
+    title: p.title.trim().slice(0, 120), description: p.description || '',
+    type_id: ty && !p.is_exam ? ty.id : null,
+    color: ty ? ty.color : impColor,
     start_date: p.start_date, end_date: (p.end_date && p.end_date >= p.start_date) ? p.end_date : p.start_date,
     is_exam: !!p.is_exam, is_urgent: !!(p.is_exam || p.is_urgent), repeat_weekly: !!p.repeat_weekly
   }));
@@ -953,9 +1153,6 @@ async function impSave() {
 }
 
 /* ---------- Start ---------- */
-$('#s-close').addEventListener('click', closeSettings);
-$('#s-import').addEventListener('click', () => { closeSettings(); openImport(); });
-$('#s-logout').addEventListener('click', () => { closeSettings(); sb.auth.signOut(); });
 $('#settings').addEventListener('click', ev => { if (ev.target.id === 'settings') closeSettings(); });
 $('#imp-close').addEventListener('click', () => {
   if (impStage === 'review') { impStage = 'pick'; impRender(); } else closeImport();
@@ -966,11 +1163,7 @@ document.addEventListener('paste', ev => {
   const files = [...((ev.clipboardData && ev.clipboardData.files) || [])].filter(f => f.type.startsWith('image/'));
   if (files.length) { ev.preventDefault(); impAddFiles(files); }
 });
-PALETTE.forEach(c => {
-  $('#m-swatches').append(el('button', { class: 'sw', type: 'button', 'data-c': c, 'aria-label': 'Farbe ' + c, style: 'background:' + c, onclick: () => setColor(c) }));
-});
-$('#m-custom').addEventListener('input', ev => setColor(ev.target.value));
-$('#m-exam').addEventListener('change', updateExamUI);
+$('#m-custom').addEventListener('change', ev => pickFreeColor(ev.target.value));
 $('#m-close').addEventListener('click', closeModal);
 $('#m-save').addEventListener('click', saveTask);
 $('#m-delete').addEventListener('click', deleteTask);
