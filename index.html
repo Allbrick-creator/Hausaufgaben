@@ -72,6 +72,26 @@ body.lock{overflow:hidden}
 .dayview .chip.work{padding:10px}
 .dayview .chip .hint{font-size:13px}
 
+/* Monatsansicht (iPhone) */
+.bar h1.tap{cursor:pointer;display:flex;align-items:center;gap:6px}
+.bar h1.tap::after{content:'';width:7px;height:7px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:translateY(-2px) rotate(45deg)}
+.bar h1.tap.up::after{transform:translateY(2px) rotate(-135deg)}
+.month{display:flex;flex-direction:column;padding:0 6px 8px}
+.mhead{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:8px 0 6px}
+.mgrid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,1fr)}
+.mcell{appearance:none;border:0;border-top:1px solid var(--line);background:transparent;color:var(--ink);font-family:inherit;padding:5px 0 4px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;min-height:0;overflow:hidden}
+.mcell:active{background:var(--soft)}
+.mcell .mn{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:17px;font-weight:600}
+.mcell.out{color:#c7c7cc}
+.mcell.out .mdots{opacity:.45}
+.mcell.today .mn{background:var(--ink);color:#fff}
+.mcell.cur:not(.today) .mn{box-shadow:inset 0 0 0 2px var(--ink)}
+.mdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:3px;max-width:42px}
+.mdot{width:8px;height:8px;border-radius:50%;box-sizing:border-box}
+.mdot.w{border:2px solid;background:transparent}
+.mdot.d{opacity:.3}
+.mmore{font-size:10px;font-weight:700;color:var(--muted);line-height:8px}
+
 /* Ansichts-Umschalter */
 .vseg{display:flex;background:var(--soft);border-radius:10px;padding:3px;gap:2px}
 .vseg button{appearance:none;border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
@@ -269,6 +289,7 @@ const SUPABASE_KEY = 'sb_publishable_4uFJH67QOjXem8uoEVr1Ig_ICxcpvU-';
 const M = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 const WD = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const WDS = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const EXAM = '#D92D20';
 const PALETTE = ['#4F8EF7','#34C759','#FF9F0A','#AF52DE','#FF6B9D','#00B8D9','#8E8E93','#A2845E'];
 const pad = n => String(n).padStart(2, '0');
@@ -276,6 +297,12 @@ const fmt = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.get
 const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return fmt(d); };
 const todayStr = () => fmt(new Date());
+// Gleicher Tag im Nachbarmonat (31. März + 1 → 30. April)
+const addMonths = (s, n) => {
+  const d = parse(s), y = d.getFullYear(), m = d.getMonth() + n;
+  const last = new Date(y, m + 1, 0).getDate();
+  return fmt(new Date(y, m, Math.min(d.getDate(), last)));
+};
 const dayNum = s => { const [y, m, d] = s.split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86400000); };
 // Woche beginnt am Samstag und endet am Freitag
 const weekStart = s => addDays(s, -((parse(s).getDay() + 1) % 7));
@@ -491,7 +518,12 @@ function newTaskDate() {
 const EASE = 'cubic-bezier(.22,.61,.36,1)';
 let animating = false, titleEl = null;
 
+let monthMode = false;   // Monatsansicht (nur iPhone)
+const isMonth = () => monthMode && isMobile();
+// Einen Schritt vor/zurück: Monat, Tag (iPhone) oder Woche (iPad)
+const step = (date, dir) => isMonth() ? addMonths(date, dir) : addDays(date, isMobile() ? dir : dir * 7);
 function titleFor(date) {
+  if (isMonth()) { const d = parse(date); return MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
   if (isMobile()) {
     const d = parse(date);
     return WD[d.getDay()] + ', ' + d.getDate() + '. ' + M[d.getMonth()];
@@ -500,11 +532,12 @@ function titleFor(date) {
   return a.getDate() + '. ' + M[a.getMonth()] + ' – ' + b.getDate() + '. ' + M[b.getMonth()] + ' ' + b.getFullYear();
 }
 function updateTitle() { if (titleEl) titleEl.textContent = titleFor(cur); }
-const samePage = (a, b) => isMobile() ? a === b : weekStart(a) === weekStart(b);
+const samePage = (a, b) => isMonth() ? a.slice(0, 7) === b.slice(0, 7) : isMobile() ? a === b : weekStart(a) === weekStart(b);
 
 // Baut die Ansicht (Woche oder Tag) für ein Datum
 function buildView(date) {
   const today = todayStr();
+  if (isMonth()) return buildMonth(date);
   if (isMobile()) {
     const list = entriesOn(date);
     const head = el('div', { style: 'font-size:15px;margin:0 0 12px;color:#6b6b70;font-weight:600' },
@@ -527,6 +560,37 @@ function buildView(date) {
       el('div', { class: 'dl' }, entriesOn(day).map(chip))));
   }
   return week;
+}
+
+// Monatsansicht (iPhone): Raster Sa–Fr, Punkte pro Aufgabe, Tipp auf Tag öffnet den Tag
+function buildMonth(date) {
+  const today = todayStr(), ym = date.slice(0, 7);
+  const first = ym + '-01';
+  const last = fmt(new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0));
+  const start = weekStart(first);
+  const weeks = Math.ceil((dayNum(last) - dayNum(start) + 1) / 7);
+  const head = el('div', { class: 'mhead' }, [6, 0, 1, 2, 3, 4, 5].map(i => el('span', { text: WDS[i] })));
+  const grid = el('div', { class: 'mgrid', style: 'grid-template-rows:repeat(' + weeks + ',1fr)' });
+  for (let i = 0; i < weeks * 7; i++) {
+    const day = addDays(start, i);
+    const list = entriesOn(day);
+    const dots = el('span', { class: 'mdots' });
+    list.slice(0, 4).forEach(e => {
+      const isW = e.kind === 'work';
+      const c = isW ? workColor(e.t) : effColor(e.t);
+      const isDone = isW ? (doneWork.has(e.t.id + '|' + day) || taskDoneFor(e.t, day)) : done.has(e.t.id + '|' + day);
+      dots.append(el('span', { class: 'mdot' + (isW ? ' w' : '') + (isDone ? ' d' : ''), style: isW ? 'border-color:' + c : 'background:' + c }));
+    });
+    if (list.length > 4) dots.append(el('span', { class: 'mmore', text: '+' + (list.length - 4) }));
+    const d = parse(day);
+    const label = WD[d.getDay()] + ', ' + d.getDate() + '. ' + M[d.getMonth()] + (list.length ? ', ' + list.length + (list.length === 1 ? ' Eintrag' : ' Einträge') : '');
+    grid.append(el('button', {
+      type: 'button', 'aria-label': label,
+      class: 'mcell' + (day.slice(0, 7) !== ym ? ' out' : '') + (day === today ? ' today' : '') + (day === cur ? ' cur' : ''),
+      onclick: () => { if (animating) return; monthMode = false; cur = day; renderApp(); }
+    }, el('span', { class: 'mn', text: String(d.getDate()) }), dots));
+  }
+  return el('div', { class: 'month view' }, head, grid);
 }
 
 // Alte Ansicht gleitet hinaus, neue gleitet hinein
@@ -582,7 +646,7 @@ function navigateTo(target) {
   pager.append(nv);
   slide(old, nv, dir, 0, W, 300);
 }
-function go(dir) { navigateTo(addDays(cur, isMobile() ? dir : dir * 7)); }
+function go(dir) { navigateTo(step(cur, dir)); }
 
 // Wischen mit dem Finger: Ansicht folgt dem Finger
 function attachSwipe(pager) {
@@ -610,7 +674,7 @@ function attachSwipe(pager) {
     if (d !== dir || !nv) {
       if (nv) nv.remove();
       dir = d;
-      nv = buildView(addDays(cur, isMobile() ? dir : dir * 7));
+      nv = buildView(step(cur, dir));
       pager.append(nv);
     }
     old.style.transform = 'translateX(' + dx + 'px)';
@@ -628,7 +692,7 @@ function attachSwipe(pager) {
     const commit = !cancelled && (Math.abs(dx) > W * 0.25 ||
       (Math.abs(vel) > 0.5 && Math.abs(dx) > 20 && Math.sign(vel) === Math.sign(dx)));
     if (commit) {
-      cur = addDays(cur, isMobile() ? d : d * 7);
+      cur = step(cur, d);
       updateTitle();
       slide(o, n, d, dx, W, 240);
     } else {
@@ -646,6 +710,14 @@ function renderApp() {
   app.replaceChildren();
 
   titleEl = el('h1', { text: titleFor(cur) });
+  if (isMobile()) {
+    // Auf dem iPhone: Titel antippen wechselt zwischen Tag und Monat
+    titleEl.className = 'tap' + (monthMode ? ' up' : '');
+    titleEl.setAttribute('role', 'button');
+    titleEl.setAttribute('tabindex', '0');
+    titleEl.setAttribute('aria-label', monthMode ? 'Zur Tagesansicht' : 'Zur Monatsansicht');
+    titleEl.addEventListener('click', () => { if (animating) return; monthMode = !monthMode; renderApp(); });
+  }
   const gear = el('button', { class: 'btn ghost icon-btn', type: 'button', 'aria-label': 'Einstellungen', onclick: openSettings });
   gear.innerHTML = GEAR_SVG;
   app.append(el('div', { class: 'bar' },
