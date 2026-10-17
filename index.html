@@ -55,9 +55,11 @@ body.lock{overflow:hidden}
 .chip{display:flex;align-items:flex-start;gap:7px;border-radius:7px;padding:7px 8px;font-size:14px;font-weight:600;line-height:1.25;cursor:pointer;word-break:break-word;user-select:none;-webkit-user-select:none}
 .chip .ct{flex:1;min-width:0}
 .chip.done{opacity:.4}
-.chip.done .ct{text-decoration:line-through}
+.chip.done .tt{text-decoration:line-through}
 .check{position:relative;flex:none;width:18px;height:18px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;padding:0;margin-top:1px;font-size:11px;font-weight:800;line-height:1;display:grid;place-items:center;cursor:pointer}
 .check::after{content:'';position:absolute;inset:-9px}
+.chip.work{border:2px solid;padding:5px 6px}
+.chip .hint{display:block;font-size:11px;font-weight:600;opacity:.7;margin-top:2px;text-decoration:none}
 .urg{display:block;flex:none;width:16px;height:16px;margin-top:1px}
 .urg svg{display:block}
 
@@ -67,6 +69,28 @@ body.lock{overflow:hidden}
 .dayview .chip{font-size:16px;padding:12px 12px;border-radius:10px}
 .dayview .check{width:22px;height:22px;font-size:13px}
 .dayview .urg{width:20px;height:20px}
+.dayview .chip.work{padding:10px}
+.dayview .chip .hint{font-size:13px}
+
+/* Ansichts-Umschalter */
+.vseg{display:flex;background:var(--soft);border-radius:10px;padding:3px;gap:2px}
+.vseg button{appearance:none;border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.vseg button.sel{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14)}
+
+/* Teile im Bearbeiten-Fenster */
+.sec{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.sec-h{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:17px;font-weight:700;cursor:pointer}
+.sec-h small{display:block;font-size:13px;font-weight:400;color:var(--muted);margin-top:2px}
+.sec-b{margin-top:14px}
+.sec .row{margin-bottom:12px}
+.tg{appearance:none;-webkit-appearance:none;flex:none;width:50px;height:30px;border-radius:999px;background:#e5e5ea;position:relative;cursor:pointer;margin:0;transition:background .15s}
+.tg::after{content:'';position:absolute;top:2px;left:2px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.tg:checked{background:var(--ink)}
+.tg:checked::after{transform:translateX(20px)}
+.wrow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.wrow input[type=date]{flex:1;min-width:0;font-family:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);min-height:42px}
+.wrow .wd{width:28px;font-size:13px;font-weight:700;color:var(--muted)}
+.wadd{margin:0 0 14px}
 .empty{color:var(--muted);text-align:center;padding:40px 0;font-size:15px}
 .today-pill{display:inline-block;background:var(--ink);color:#fff;border-radius:999px;font-size:12px;font-weight:700;padding:2px 9px;margin-left:8px;vertical-align:middle}
 
@@ -76,9 +100,9 @@ body.lock{overflow:hidden}
 .sheet-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .sheet-title{font-size:20px;font-weight:700;letter-spacing:-.2px}
 .m-title{width:100%;border:0;outline:0;font-family:inherit;font-size:24px;font-weight:700;padding:8px 0;border-bottom:1px solid var(--line);margin-bottom:12px;background:transparent;color:var(--ink)}
-.m-desc{width:100%;min-height:150px;border:0;outline:0;resize:vertical;font-family:inherit;font-size:16px;line-height:1.45;background:var(--soft);border-radius:12px;padding:12px;margin-bottom:16px;color:var(--ink)}
+.m-desc{width:100%;min-height:110px;border:0;outline:0;resize:vertical;font-family:inherit;font-size:16px;line-height:1.45;background:var(--soft);border-radius:12px;padding:12px;margin-bottom:16px;color:var(--ink)}
 .row{display:flex;gap:12px;margin-bottom:16px}
-.row label{flex:1;font-size:13px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.row label{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:6px}
 .row input[type=date]{font-family:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);min-height:42px;width:100%}
 .opt{display:flex;align-items:center;gap:10px;font-size:16px;padding:8px 0}
 .opt input{width:22px;height:22px;accent-color:#111;margin:0}
@@ -167,6 +191,8 @@ body.lock{overflow:hidden}
   .sheet{max-width:none;max-height:none;height:100%;border-radius:0;padding-top:calc(14px + env(safe-area-inset-top))}
   .bar{padding:10px 12px}
   .bar h1{font-size:18px}
+  .bar .vseg{order:5;width:100%}
+  .bar .vseg button{flex:1}
 }
 </style>
 </head>
@@ -181,16 +207,35 @@ body.lock{overflow:hidden}
     </div>
     <input id="m-title" class="m-title" placeholder="Titel" maxlength="120" autocomplete="off">
     <textarea id="m-desc" class="m-desc" placeholder="Beschreibung der Aufgabe …"></textarea>
-    <div class="row">
-      <label>Von<input type="date" id="m-start"></label>
-      <label>Bis<input type="date" id="m-end"></label>
+    <div class="sec">
+      <label class="sec-h"><span>Fällig<small>Wann ist die Abgabe oder Prüfung?</small></span><input type="checkbox" class="tg" id="m-due-on" aria-label="Fällig ein/aus"></label>
+      <div class="sec-b" id="m-due">
+        <div class="row">
+          <label>Von<input type="date" id="m-start"></label>
+          <label>Bis<input type="date" id="m-end"></label>
+        </div>
+        <div class="flabel">Typ</div>
+        <div class="tsel" id="m-types"></div>
+        <div class="colors" id="m-colorrow">
+          <div class="lbl">Farbe (ohne Typ)</div>
+          <div id="m-swatches" style="display:contents"></div>
+          <input type="color" id="m-custom" aria-label="Eigene Farbe wählen">
+        </div>
+      </div>
     </div>
-    <div class="flabel">Typ</div>
-    <div class="tsel" id="m-types"></div>
-    <div class="colors" id="m-colorrow">
-      <div class="lbl">Farbe (ohne Typ)</div>
-      <div id="m-swatches" style="display:contents"></div>
-      <input type="color" id="m-custom" aria-label="Eigene Farbe wählen">
+    <div class="sec">
+      <label class="sec-h"><span>Ich mache es am<small>An welchen Tagen arbeitest du daran?</small></span><input type="checkbox" class="tg" id="m-work-on" aria-label="Arbeitstage ein/aus"></label>
+      <div class="sec-b" id="m-work">
+        <div id="m-wdays"></div>
+        <button class="btn ghost wadd" id="m-wadd" type="button">+ Tag hinzufügen</button>
+        <div class="flabel">Typ der Arbeitstage</div>
+        <div class="tsel" id="m-wtypes"></div>
+        <div class="colors" id="m-wcolorrow">
+          <div class="lbl">Farbe (ohne Typ)</div>
+          <div id="m-wswatches" style="display:contents"></div>
+          <input type="color" id="m-wcustom" aria-label="Eigene Farbe für Arbeitstage wählen">
+        </div>
+      </div>
     </div>
     <label class="opt"><input type="checkbox" id="m-urgent"> Dringlich <small id="m-urgent-note">(mit Warnzeichen, steht weiter oben)</small></label>
     <label class="opt"><input type="checkbox" id="m-repeat"> Jede Woche wiederholen <small>(bis du die Aufgabe löschst)</small></label>
@@ -252,7 +297,53 @@ function textOn(hex) {
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
-let session = null, tasks = [], types = [], done = new Set(), cur = todayStr(), editing = null, currentColor = PALETTE[0], lastMobile = null;
+let session = null, tasks = [], types = [], done = new Set(), cur = todayStr(), editing = null, lastMobile = null;
+let workdays = new Map();      // Aufgaben-ID → sortierte Liste der Arbeitstage
+let doneWork = new Set();      // 'ID|Datum' der erledigten Arbeitstage
+let doneAny = new Set();       // Aufgaben-IDs mit mindestens einem erledigten Fälligkeitstag
+let viewMode = 'all';          // 'all', 'due' oder 'plan'
+try { const v = localStorage.getItem('viewMode'); if (['all', 'due', 'plan'].includes(v)) viewMode = v; } catch (e) {}
+
+/* ---------- Arbeitstage ---------- */
+function workOccursOn(t, date) {
+  const list = workdays.get(t.id);
+  if (!list || !list.length) return false;
+  if (!t.repeat_weekly) return list.includes(date);
+  const d = dayNum(date);
+  return list.some(w => { const s = dayNum(w); return d >= s && (d - s) % 7 === 0; });
+}
+// Nächster Fälligkeitstag ab einem Datum (bei mehrtägigen der letzte Tag)
+function nextDueOn(t, date) {
+  if (!t.start_date) return null;
+  if (!t.repeat_weekly) return t.end_date;
+  for (let i = 0; i < 14; i++) {
+    const d = addDays(date, i);
+    if (occursOn(t, d) && !occursOn(t, addDays(d, 1))) return d;
+  }
+  for (let i = 0; i < 14; i++) { const d = addDays(date, i); if (occursOn(t, d)) return d; }
+  return null;
+}
+// Ist die Aufgabe (Fälligkeit) erledigt, gelten auch ihre Arbeitstage als erledigt
+function taskDoneFor(t, workDate) {
+  if (!t.start_date) return false;
+  if (!t.repeat_weekly) return doneAny.has(t.id);
+  let d = nextDueOn(t, workDate);
+  for (let i = 0; d && i < 7 && occursOn(t, d); i++, d = addDays(d, -1)) if (done.has(t.id + '|' + d)) return true;
+  return false;
+}
+function dueHint(t, date) {
+  const nd = nextDueOn(t, date);
+  if (!nd) return '';
+  const d = parse(nd);
+  return (t.is_exam ? 'für Prüfung ' : 'fällig ') + WDS[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '.';
+}
+function workColor(t) {
+  const ty = typeById(t.work_type_id);
+  return ty ? safeColor(ty.color) : safeColor(t.work_color);
+}
+function hexRgba(hex, a) {
+  return 'rgba(' + parseInt(hex.slice(1, 3), 16) + ',' + parseInt(hex.slice(3, 5), 16) + ',' + parseInt(hex.slice(5, 7), 16) + ',' + a + ')';
+}
 
 /* ---------- Typen ---------- */
 const sameC = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
@@ -299,49 +390,96 @@ const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" st
 
 /* ---------- Daten ---------- */
 async function loadData() {
-  const [t, c, ty] = await Promise.all([
+  const [t, c, ty, w] = await Promise.all([
     sb.from('tasks').select('*').order('created_at'),
     sb.from('task_completions').select('*'),
-    sb.from('task_types').select('*').order('sort').order('created_at')
+    sb.from('task_types').select('*').order('sort').order('created_at'),
+    sb.from('task_workdays').select('*')
   ]);
-  const err = t.error || c.error || ty.error;
+  const err = t.error || c.error || ty.error || w.error;
   if (err) { toast('Fehler beim Laden: ' + err.message); return; }
   tasks = t.data;
   types = ty.data;
-  done = new Set(c.data.filter(r => !r.kind || r.kind === 'due').map(r => r.task_id + '|' + r.date));
+  workdays = new Map();
+  w.data.forEach(r => { if (!workdays.has(r.task_id)) workdays.set(r.task_id, []); workdays.get(r.task_id).push(r.date); });
+  workdays.forEach(l => l.sort());
+  const due = c.data.filter(r => !r.kind || r.kind === 'due');
+  done = new Set(due.map(r => r.task_id + '|' + r.date));
+  doneAny = new Set(due.map(r => r.task_id));
+  doneWork = new Set(c.data.filter(r => r.kind === 'work').map(r => r.task_id + '|' + r.date));
   renderApp();
+}
+async function toggleWork(t, date) {
+  if (taskDoneFor(t, date)) { toast('Die ganze Aufgabe ist schon erledigt'); return; }
+  const key = t.id + '|' + date;
+  let error;
+  if (doneWork.has(key)) {
+    doneWork.delete(key); renderApp();
+    ({ error } = await sb.from('task_completions').delete().eq('task_id', t.id).eq('date', date).eq('kind', 'work'));
+  } else {
+    doneWork.add(key); renderApp();
+    ({ error } = await sb.from('task_completions').insert({ task_id: t.id, date, kind: 'work' }));
+  }
+  if (error) { toast('Fehler: ' + error.message); loadData(); }
 }
 async function toggleDone(id, date) {
   const key = id + '|' + date;
   let error;
   if (done.has(key)) {
-    done.delete(key); renderApp();
+    done.delete(key);
+    if (![...done].some(k => k.startsWith(id + '|'))) doneAny.delete(id);
+    renderApp();
     ({ error } = await sb.from('task_completions').delete().eq('task_id', id).eq('date', date).eq('kind', 'due'));
   } else {
-    done.add(key); renderApp();
+    done.add(key); doneAny.add(id); renderApp();
     ({ error } = await sb.from('task_completions').insert({ task_id: id, date, kind: 'due' }));
   }
   if (error) { toast('Fehler: ' + error.message); loadData(); }
 }
 // Reihenfolge: Prüfungen, dann dringlich, dann der Rest
-function tasksOn(date) {
-  return tasks.filter(t => occursOn(t, date))
-    .sort((a, b) => (b.is_exam - a.is_exam) || (isUrgent(b) - isUrgent(a)) || a.created_at.localeCompare(b.created_at));
+// Einträge eines Tages je nach Ansicht. Arbeitstage stehen normal einsortiert.
+function entriesOn(date) {
+  const out = [];
+  for (const t of tasks) {
+    const isDue = viewMode !== 'plan' && occursOn(t, date);
+    if (isDue) out.push({ t, kind: 'due', date });
+    // In «Alle» kein zweites Feld, wenn Abgabe und Arbeitstag auf denselben Tag fallen
+    if (viewMode !== 'due' && !isDue && workOccursOn(t, date)) out.push({ t, kind: 'work', date });
+  }
+  const ex = e => e.kind === 'due' && e.t.is_exam ? 1 : 0;
+  const ur = e => e.kind === 'due' && isUrgent(e.t) ? 1 : 0;
+  return out.sort((a, b) => (ex(b) - ex(a)) || (ur(b) - ur(a)) || a.t.created_at.localeCompare(b.t.created_at) || (a.kind === 'due' ? -1 : 1));
 }
 
 /* ---------- Anzeige ---------- */
-function chip(t, date) {
+function chip(e) {
+  const { t, kind, date } = e;
+  if (kind === 'work') {
+    // Arbeitstag: ausgebleicht mit Farbrand und Hinweis auf die Abgabe
+    const c = workColor(t);
+    const isDone = doneWork.has(t.id + '|' + date) || taskDoneFor(t, date);
+    const hint = dueHint(t, date);
+    return el('div', {
+      class: 'chip work' + (isDone ? ' done' : ''), role: 'button', tabindex: '0', 'data-kind': 'work',
+      style: 'background:' + hexRgba(c, .16) + ';border-color:' + c + ';color:#111',
+      onclick: () => openModal(t, date, 'work')
+    },
+      el('button', { class: 'check', type: 'button', 'aria-label': 'Arbeitstag erledigt', text: isDone ? '✓' : '',
+        onclick: ev => { ev.stopPropagation(); toggleWork(t, date); } }),
+      el('span', { class: 'ct' }, el('span', { class: 'tt', text: t.title }), hint ? el('span', { class: 'hint', text: hint }) : null)
+    );
+  }
   const isDone = done.has(t.id + '|' + date);
   const color = effColor(t);
   const fg = textOn(color);
   return el('div', {
-    class: 'chip' + (isDone ? ' done' : ''), role: 'button', tabindex: '0',
+    class: 'chip' + (isDone ? ' done' : ''), role: 'button', tabindex: '0', 'data-kind': 'due',
     style: 'background:' + color + ';color:' + fg,
-    onclick: () => openModal(t, date)
+    onclick: () => openModal(t, date, 'due')
   },
     el('button', { class: 'check', type: 'button', 'aria-label': 'Erledigt', text: isDone ? '✓' : '',
       onclick: ev => { ev.stopPropagation(); toggleDone(t.id, date); } }),
-    el('span', { class: 'ct', text: t.title }),
+    el('span', { class: 'ct' }, el('span', { class: 'tt', text: t.title })),
     isUrgent(t) ? urgentIcon(color, fg) : null
   );
 }
@@ -368,12 +506,13 @@ const samePage = (a, b) => isMobile() ? a === b : weekStart(a) === weekStart(b);
 function buildView(date) {
   const today = todayStr();
   if (isMobile()) {
-    const list = tasksOn(date);
+    const list = entriesOn(date);
     const head = el('div', { style: 'font-size:15px;margin:0 0 12px;color:#6b6b70;font-weight:600' },
       document.createTextNode(date.split('-').reverse().join('.')));
     if (date === today) head.append(el('span', { class: 'today-pill', text: 'Heute' }));
+    const emptyText = viewMode === 'plan' ? 'Nichts geplant an diesem Tag' : viewMode === 'due' ? 'Nichts fällig an diesem Tag' : 'Keine Aufgaben an diesem Tag';
     return el('div', { class: 'dayview view' }, head,
-      list.length ? el('div', { class: 'dl' }, list.map(t => chip(t, date))) : el('div', { class: 'empty', text: 'Keine Aufgaben an diesem Tag' }));
+      list.length ? el('div', { class: 'dl' }, list.map(chip)) : el('div', { class: 'empty', text: emptyText }));
   }
   const ws = weekStart(date);
   const week = el('div', { class: 'week view' });
@@ -385,7 +524,7 @@ function buildView(date) {
           el('span', { class: 'dname', text: WDS[d.getDay()] }),
           el('span', { class: 'num', text: String(d.getDate()) })),
         el('button', { class: 'add', type: 'button', 'aria-label': 'Aufgabe hinzufügen', text: '+', onclick: () => openModal(null, day) })),
-      el('div', { class: 'dl' }, tasksOn(day).map(t => chip(t, day)))));
+      el('div', { class: 'dl' }, entriesOn(day).map(chip))));
   }
   return week;
 }
@@ -514,6 +653,10 @@ function renderApp() {
       el('button', { class: 'btn ghost icon-btn', type: 'button', 'aria-label': 'Zurück', text: '‹', onclick: () => go(-1) }),
       el('button', { class: 'btn ghost icon-btn', type: 'button', 'aria-label': 'Weiter', text: '›', onclick: () => go(1) })),
     titleEl,
+    el('div', { class: 'vseg', role: 'group', 'aria-label': 'Ansicht' },
+      [['all', 'Alle'], ['due', 'Fällig'], ['plan', 'Plan']].map(([v, label]) =>
+        el('button', { type: 'button', class: viewMode === v ? 'sel' : '', 'aria-pressed': viewMode === v ? 'true' : 'false', text: label,
+          onclick: () => { if (viewMode === v) return; viewMode = v; try { localStorage.setItem('viewMode', v); } catch (e) {} renderApp(); } }))),
     el('div', { class: 'group' },
       el('button', { class: 'btn ghost', type: 'button', text: 'Heute', onclick: () => navigateTo(todayStr()) }),
       el('button', { class: 'btn', type: 'button', text: '+ Neu', onclick: () => openModal(null, newTaskDate()) }),
@@ -590,7 +733,7 @@ function renderSettings() {
     el('div', { class: 'set-item static' },
       el('span', { class: 'trow' }, dot(EXAM), el('span', null, 'Prüfung', el('small', { text: 'Fest: immer rot, dringlich und ganz oben' })))));
   types.forEach(t => {
-    const n = tasks.filter(x => x.type_id === t.id).length;
+    const n = tasks.filter(x => x.type_id === t.id || x.work_type_id === t.id).length;
     list.append(el('button', { class: 'set-item', type: 'button', onclick: () => { typeEdit = { id: t.id, name: t.name, color: t.color }; renderSettings(); } },
       el('span', { class: 'trow' }, dot(safeColor(t.color)), el('span', null, t.name, el('small', { text: n === 1 ? '1 Aufgabe' : n + ' Aufgaben' }))),
       el('span', { class: 'arr', text: '›' })));
@@ -601,6 +744,9 @@ function renderSettings() {
       renderSettings();
     } })));
 }
+// Aufgaben ohne Typ in einer Farbe: Fälligkeit (ohne Prüfungen) bzw. Arbeitstage
+const autoDue = c => tasks.filter(t => t.start_date && !t.is_exam && !t.type_id && sameC(t.color, c));
+const autoWork = c => tasks.filter(t => (workdays.get(t.id) || []).length && !t.work_type_id && sameC(t.work_color, c));
 function renderTypeEditor(sh) {
   const te = typeEdit;
   const others = types.filter(t => t.id !== te.id);
@@ -614,7 +760,7 @@ function renderTypeEditor(sh) {
   const mark = () => {
     colors.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', sameC(b.dataset.c, te.color)));
     custom.value = safeColor(te.color);
-    const n = tasks.filter(t => !t.is_exam && !t.type_id && sameC(t.color, te.color)).length;
+    const n = new Set(autoDue(te.color).concat(autoWork(te.color))).size;
     info.textContent = !n ? '' : n === 1 ? '1 bestehende Aufgabe in dieser Farbe bekommt den Typ automatisch.'
       : n + ' bestehende Aufgaben in dieser Farbe bekommen den Typ automatisch.';
   };
@@ -653,18 +799,25 @@ async function saveType() {
       // Ersatzfarbe der Aufgaben mitziehen (falls der Typ später gelöscht wird)
       const r = await sb.from('tasks').update({ color }).eq('type_id', id);
       if (r.error) throw r.error;
+      const r2 = await sb.from('tasks').update({ work_color: color }).eq('work_type_id', id);
+      if (r2.error) throw r2.error;
     } else {
       const { data, error } = await sb.from('task_types').insert({ name, color, sort: types.length }).select();
       if (error) throw error;
       id = data[0].id;
     }
     // Aufgaben ohne Typ in dieser Farbe bekommen den Typ
-    const ids = tasks.filter(t => !t.is_exam && !t.type_id && sameC(t.color, color)).map(t => t.id);
+    const ids = autoDue(color).map(t => t.id), wids = autoWork(color).map(t => t.id);
     if (ids.length) {
       const r = await sb.from('tasks').update({ type_id: id, color }).in('id', ids);
       if (r.error) throw r.error;
-      toast(ids.length === 1 ? '1 Aufgabe hat den Typ «' + name + '» bekommen' : ids.length + ' Aufgaben haben den Typ «' + name + '» bekommen');
     }
+    if (wids.length) {
+      const r = await sb.from('tasks').update({ work_type_id: id, work_color: color }).in('id', wids);
+      if (r.error) throw r.error;
+    }
+    const n = new Set(ids.concat(wids)).size;
+    if (n) toast(n === 1 ? '1 Aufgabe hat den Typ «' + name + '» bekommen' : n + ' Aufgaben haben den Typ «' + name + '» bekommen');
     typeEdit = null;
     await loadData();
     renderSettings();
@@ -673,7 +826,7 @@ async function saveType() {
   } finally { typeBusy = false; }
 }
 async function deleteType() {
-  const te = typeEdit, n = tasks.filter(t => t.type_id === te.id).length;
+  const te = typeEdit, n = tasks.filter(t => t.type_id === te.id || t.work_type_id === te.id).length;
   const msg = 'Typ «' + (te.name.trim() || 'ohne Namen') + '» löschen?' +
     (n ? ' ' + (n === 1 ? '1 Aufgabe behält' : n + ' Aufgaben behalten') + ' die Farbe, hat dann aber keinen Typ mehr.' : '');
   if (!confirm(msg)) return;
@@ -685,23 +838,13 @@ async function deleteType() {
 }
 
 /* ---------- Fenster zum Bearbeiten ---------- */
-let urgentPrev = false, selType = '';   // selType: 'exam', Typ-ID oder '' (ohne Typ)
-function setColor(c) {
-  currentColor = safeColor(c);
-  $('#m-custom').value = currentColor;
-  document.querySelectorAll('#m-swatches .sw').forEach(b => b.classList.toggle('sel', sameC(b.dataset.c, currentColor)));
-}
-// Freie Farbe gewählt: gehört sie einem Typ, wird dieser Typ gewählt
-function pickFreeColor(c) {
-  if (sameC(c, EXAM)) { toast('Rot ist für Prüfungen reserviert'); setColor(currentColor); return; }
-  const t = typeOfColor(c);
-  if (t) { toast('Diese Farbe gehört zum Typ «' + t.name + '». Typ gewählt.'); chooseType(t.id); setColor(currentColor); return; }
-  setColor(c);
-}
-function renderSwatches() {
-  const box = $('#m-swatches');
-  box.replaceChildren(...freeColors().map(c => el('button', { class: 'sw', type: 'button', 'data-c': c, 'aria-label': 'Farbe ' + c, style: 'background:' + c, onclick: () => pickFreeColor(c) })));
-}
+// Zwei Teile: «Fällig» (due) und «Ich mache es am» (work), je mit eigenem Typ und eigener Farbe.
+// sel: 'exam' (nur bei Fällig), Typ-ID oder '' (ohne Typ)
+const SIDES = {
+  due:  { types: '#m-types',  row: '#m-colorrow',  sw: '#m-swatches',  custom: '#m-custom',  exam: true,  sel: '', color: PALETTE[0] },
+  work: { types: '#m-wtypes', row: '#m-wcolorrow', sw: '#m-wswatches', custom: '#m-wcustom', exam: false, sel: '', color: PALETTE[1] }
+};
+let urgentPrev = false, wdays = [];
 // Typ-Knöpfe: Prüfung, eigene Typen, ohne Typ
 function typeChips(current, onPick, withExam) {
   const opts = (withExam ? [['exam', 'Prüfung', EXAM]] : []).concat(types.map(t => [t.id, t.name, safeColor(t.color)]), [['', 'Ohne Typ', null]]);
@@ -714,12 +857,31 @@ function typeChips(current, onPick, withExam) {
     }, c ? dot(c) : null, name);
   });
 }
-function renderTypeSel() { $('#m-types').replaceChildren(...typeChips(selType, chooseType, true)); }
-function chooseType(v) { selType = v; renderTypeSel(); updateExamUI(); }
-// Bei Prüfungen: «Dringlich» fest eingeschaltet. Farbwahl nur ohne Typ.
+function sideRender(k) {
+  const s = SIDES[k];
+  $(s.types).replaceChildren(...typeChips(s.sel, v => { s.sel = v; sideRender(k); if (k === 'due') updateExamUI(); }, s.exam));
+  $(s.row).hidden = s.sel !== '';
+  $(s.sw).replaceChildren(...freeColors().map(c => el('button', {
+    class: 'sw' + (sameC(c, s.color) ? ' sel' : ''), type: 'button', 'data-c': c, 'aria-label': 'Farbe ' + c,
+    style: 'background:' + c, onclick: () => sidePick(k, c) })));
+  $(s.custom).value = safeColor(s.color);
+}
+// Freie Farbe gewählt: gehört sie einem Typ, wird dieser Typ gewählt
+function sidePick(k, c) {
+  const s = SIDES[k];
+  if (sameC(c, EXAM)) toast('Rot ist für Prüfungen reserviert');
+  else {
+    const t = typeOfColor(c);
+    if (t) { toast('Diese Farbe gehört zum Typ «' + t.name + '». Typ gewählt.'); s.sel = t.id; }
+    else s.color = safeColor(c);
+  }
+  sideRender(k);
+  if (k === 'due') updateExamUI();
+}
+const freeOr = (c, i) => (c && !typeOfColor(c) && !sameC(c, EXAM)) ? c : (freeColors()[i] || freeColors()[0] || PALETTE[0]);
+// Bei Prüfungen: «Dringlich» fest eingeschaltet
 function updateExamUI() {
-  const exam = selType === 'exam', u = $('#m-urgent');
-  $('#m-colorrow').hidden = selType !== '';
+  const exam = $('#m-due-on').checked && SIDES.due.sel === 'exam', u = $('#m-urgent');
   if (exam) {
     if (!u.disabled) urgentPrev = u.checked;
     u.checked = true;
@@ -731,25 +893,55 @@ function updateExamUI() {
     $('#m-urgent-note').textContent = '(mit Warnzeichen, steht weiter oben)';
   }
 }
-function openModal(t, date) {
-  editing = { task: t, date };
+function updateSections() {
+  $('#m-due').hidden = !$('#m-due-on').checked;
+  $('#m-work').hidden = !$('#m-work-on').checked;
+  updateExamUI();
+}
+function renderWdays() {
+  $('#m-wdays').replaceChildren(...wdays.map((d, i) => {
+    const inp = el('input', { type: 'date', 'aria-label': 'Arbeitstag ' + (i + 1) });
+    inp.value = d;
+    const wd = el('span', { class: 'wd', text: d ? WDS[parse(d).getDay()] : '' });
+    inp.addEventListener('change', () => { wdays[i] = inp.value; wd.textContent = inp.value ? WDS[parse(inp.value).getDay()] : ''; });
+    return el('div', { class: 'wrow' }, wd, inp,
+      el('button', { class: 'btn ghost icon-btn', type: 'button', 'aria-label': 'Tag entfernen', text: '×', onclick: () => { wdays.splice(i, 1); renderWdays(); } }));
+  }));
+}
+function openModal(t, date, kind) {
+  editing = { task: t, date, kind: kind || 'due' };
   $('#m-title').value = t ? t.title : '';
   $('#m-desc').value = t ? t.description : '';
-  $('#m-start').value = t ? (t.start_date || date) : date;
-  $('#m-end').value = t ? (t.end_date || date) : date;
-  selType = t ? (t.is_exam ? 'exam' : (typeById(t.type_id) ? t.type_id : '')) : '';
+  // Neue Aufgabe: in der Ansicht «Plan» beginnt man mit einem Arbeitstag, sonst mit «Fällig»
+  const wl = t ? (workdays.get(t.id) || []) : [];
+  $('#m-due-on').checked = t ? !!t.start_date : viewMode !== 'plan';
+  $('#m-work-on').checked = t ? wl.length > 0 : viewMode === 'plan';
+  $('#m-start').value = (t && t.start_date) || date;
+  $('#m-end').value = (t && t.end_date) || date;
+  wdays = t ? wl.slice() : [];
+  if ($('#m-work-on').checked && !wdays.length) wdays = [date];
+  renderWdays();
+  SIDES.due.sel = t ? (t.is_exam ? 'exam' : (typeById(t.type_id) ? t.type_id : '')) : '';
+  SIDES.due.color = freeOr(t && t.color, 0);
+  SIDES.work.sel = t && typeById(t.work_type_id) ? t.work_type_id : '';
+  SIDES.work.color = freeOr(t && t.work_color, 1);
+  sideRender('due');
+  sideRender('work');
   $('#m-urgent').disabled = false;
   $('#m-urgent').checked = t ? !!t.is_urgent : false;
   urgentPrev = $('#m-urgent').checked;
   $('#m-repeat').checked = t ? t.repeat_weekly : false;
-  renderSwatches();
-  const own = t && !typeOfColor(t.color) && !sameC(t.color, EXAM) ? t.color : null;
-  setColor(own || freeColors()[0] || PALETTE[0]);
-  renderTypeSel();
-  updateExamUI();
+  updateSections();
   $('#m-delete').hidden = !t;
   $('#m-done').hidden = !t;
-  if (t) $('#m-done').textContent = done.has(t.id + '|' + date) ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren';
+  if (t) {
+    if (editing.kind === 'work') {
+      const isD = doneWork.has(t.id + '|' + date) || taskDoneFor(t, date);
+      $('#m-done').textContent = isD ? 'Arbeitstag erledigt – zurücknehmen' : 'Arbeitstag als erledigt markieren';
+    } else {
+      $('#m-done').textContent = done.has(t.id + '|' + date) ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren';
+    }
+  }
   $('#modal').hidden = false;
   document.body.classList.add('lock');
   $('#modal .sheet').scrollTop = 0;
@@ -760,30 +952,64 @@ function closeModal() {
   document.body.classList.remove('lock');
   editing = null;
 }
+let saving = false;
 async function saveTask() {
+  if (saving) return;
   const title = $('#m-title').value.trim();
   if (!title) { toast('Bitte einen Titel eingeben'); return; }
-  const s = $('#m-start').value;
-  if (!s) { toast('Bitte ein Startdatum wählen'); return; }
-  let e = $('#m-end').value || s;
-  if (e < s) e = s;
-  const isExam = selType === 'exam';
-  const ty = isExam ? null : typeById(selType);
+  const dueOn = $('#m-due-on').checked, workOn = $('#m-work-on').checked;
+  if (!dueOn && !workOn) { toast('Bitte «Fällig» oder «Ich mache es am» einschalten'); return; }
+  let s = null, e = null;
+  if (dueOn) {
+    s = $('#m-start').value;
+    if (!s) { toast('Bitte ein Fälligkeitsdatum wählen'); return; }
+    e = $('#m-end').value || s;
+    if (e < s) e = s;
+  }
+  const wd = workOn ? [...new Set(wdays.filter(Boolean))].sort() : [];
+  if (workOn && !wd.length) { toast('Bitte mindestens einen Arbeitstag wählen'); return; }
+  const isExam = dueOn && SIDES.due.sel === 'exam';
+  const dty = dueOn && !isExam ? typeById(SIDES.due.sel) : null;
+  const wty = workOn ? typeById(SIDES.work.sel) : null;
   const payload = {
     title, description: $('#m-desc').value,
-    type_id: ty ? ty.id : null,
-    color: ty ? ty.color : currentColor,
+    type_id: dty ? dty.id : null,
+    color: dty ? dty.color : SIDES.due.color,
     start_date: s, end_date: e,
     is_exam: isExam, is_urgent: isExam || $('#m-urgent').checked,
-    repeat_weekly: $('#m-repeat').checked
+    repeat_weekly: $('#m-repeat').checked,
+    work_type_id: wty ? wty.id : null,
+    work_color: wty ? wty.color : SIDES.work.color
   };
   const btn = $('#m-save');
-  btn.disabled = true;
-  const q = editing.task ? sb.from('tasks').update(payload).eq('id', editing.task.id) : sb.from('tasks').insert(payload);
-  const { error } = await q;
-  btn.disabled = false;
-  if (error) { toast('Fehler beim Speichern: ' + error.message); return; }
-  closeModal();
+  btn.disabled = true; saving = true;
+  try {
+    let id = editing.task && editing.task.id;
+    if (id) {
+      const { error } = await sb.from('tasks').update(payload).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { data, error } = await sb.from('tasks').insert(payload).select();
+      if (error) throw error;
+      id = data[0].id;
+    }
+    // Arbeitstage abgleichen: nur Änderungen schreiben
+    const old = workdays.get(id) || [];
+    const del = old.filter(d => !wd.includes(d)), add = wd.filter(d => !old.includes(d));
+    if (del.length) {
+      const { error } = await sb.from('task_workdays').delete().eq('task_id', id).in('date', del);
+      if (error) throw error;
+    }
+    if (add.length) {
+      const { error } = await sb.from('task_workdays').insert(add.map(date => ({ task_id: id, date })));
+      if (error) throw error;
+    }
+    closeModal();
+  } catch (err) {
+    toast('Fehler beim Speichern: ' + err.message);
+  } finally {
+    btn.disabled = false; saving = false;
+  }
   loadData();
 }
 async function deleteTask() {
@@ -1163,15 +1389,26 @@ document.addEventListener('paste', ev => {
   const files = [...((ev.clipboardData && ev.clipboardData.files) || [])].filter(f => f.type.startsWith('image/'));
   if (files.length) { ev.preventDefault(); impAddFiles(files); }
 });
-$('#m-custom').addEventListener('change', ev => pickFreeColor(ev.target.value));
+$('#m-custom').addEventListener('change', ev => sidePick('due', ev.target.value));
+$('#m-wcustom').addEventListener('change', ev => sidePick('work', ev.target.value));
+$('#m-due-on').addEventListener('change', updateSections);
+$('#m-work-on').addEventListener('change', () => {
+  if ($('#m-work-on').checked && !wdays.length && editing) { wdays = [editing.date]; renderWdays(); }
+  updateSections();
+});
+$('#m-wadd').addEventListener('click', () => {
+  const last = wdays.filter(Boolean).sort().pop();
+  wdays.push(last ? addDays(last, 1) : (editing ? editing.date : todayStr()));
+  renderWdays();
+});
 $('#m-close').addEventListener('click', closeModal);
 $('#m-save').addEventListener('click', saveTask);
 $('#m-delete').addEventListener('click', deleteTask);
 $('#m-done').addEventListener('click', async () => {
   if (!editing || !editing.task) return;
-  const { task, date } = editing;
+  const { task, date, kind } = editing;
   closeModal();
-  toggleDone(task.id, date);
+  if (kind === 'work') toggleWork(task, date); else toggleDone(task.id, date);
 });
 $('#modal').addEventListener('click', ev => { if (ev.target.id === 'modal') closeModal(); });
 document.addEventListener('keydown', ev => {
