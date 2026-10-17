@@ -95,6 +95,41 @@ body.lock{overflow:hidden}
 
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;z-index:20;max-width:90vw}
 
+/* Import aus Dateien */
+.imp-help{font-size:15px;line-height:1.45;color:var(--muted);margin:0 0 14px}
+.imp-pick{position:relative;display:inline-block;overflow:hidden}
+.imp-pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;font-size:0}
+.imp-files{display:flex;flex-direction:column;gap:8px;margin:14px 0}
+.imp-file{display:flex;align-items:center;gap:10px;background:var(--soft);border-radius:10px;padding:8px 10px;font-size:15px}
+.imp-file img{width:36px;height:36px;object-fit:cover;border-radius:6px;flex:none}
+.imp-file .ico{width:36px;height:36px;border-radius:6px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--muted);flex:none}
+.imp-file .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imp-file button{appearance:none;border:0;background:transparent;font-size:22px;line-height:1;color:var(--muted);width:32px;height:32px;cursor:pointer;border-radius:8px}
+.imp-sec{font-size:13px;font-weight:600;color:var(--muted);margin:16px 0 6px}
+.seg{display:flex;gap:8px;margin-bottom:4px}
+.seg label{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.seg label small{font-weight:400;color:var(--muted);font-size:13px}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label.sel{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.imp-note{width:100%;min-height:64px;resize:vertical;font-family:inherit;font-size:16px;line-height:1.4;background:var(--soft);border:0;border-radius:12px;padding:10px 12px;color:var(--ink);outline:0}
+.imp-busy{text-align:center;padding:48px 0;font-size:16px;color:var(--muted)}
+.spin{width:30px;height:30px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--ink);margin:0 auto 16px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.imp-hint{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.4;margin:0 0 12px}
+.prop{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+.prop.off{opacity:.55}
+.prop .ptop{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.prop .ptop input[type=checkbox]{width:24px;height:24px;accent-color:#111;margin:0;flex:none}
+.prop .ptitle{flex:1;min-width:0;font-family:inherit;font-size:17px;font-weight:600;border:0;border-bottom:1px solid var(--line);padding:6px 0;outline:0;background:transparent;color:var(--ink)}
+.prop .pdesc{width:100%;min-height:52px;resize:vertical;font-family:inherit;font-size:15px;line-height:1.4;background:var(--soft);border:0;border-radius:10px;padding:8px 10px;margin-bottom:10px;outline:0;color:var(--ink)}
+.prop .row{margin-bottom:6px}
+.prop .opts{display:flex;flex-wrap:wrap;gap:4px 18px}
+.prop .opt{font-size:15px;padding:4px 0}
+.prop .opt input{width:20px;height:20px}
+.badge{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;background:#fff1d6;color:#8a5a00;margin:0 0 8px}
+.badge.dup{background:var(--soft);color:var(--muted)}
+.prop.miss .row input[type=date]:first-child{border-color:#e0a000}
+
 @media (max-width:700px){
   .overlay{padding:0;align-items:stretch}
   .sheet{max-width:none;max-height:none;height:100%;border-radius:0;padding-top:calc(14px + env(safe-area-inset-top))}
@@ -129,6 +164,16 @@ body.lock{overflow:hidden}
       <button class="btn ghost" id="m-done" type="button" hidden></button>
       <button class="btn danger" id="m-delete" type="button" hidden>Aufgabe löschen</button>
     </div>
+  </div>
+</div>
+
+<div id="imp" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="Aus Datei importieren">
+    <div class="sheet-top">
+      <button class="btn ghost" id="imp-close" type="button">Abbrechen</button>
+      <button class="btn" id="imp-go" type="button">Aufgaben erkennen</button>
+    </div>
+    <div id="imp-body"></div>
   </div>
 </div>
 
@@ -398,6 +443,7 @@ function renderApp() {
     titleEl,
     el('div', { class: 'group' },
       el('button', { class: 'btn ghost', type: 'button', text: 'Heute', onclick: () => navigateTo(todayStr()) }),
+      el('button', { class: 'btn ghost', type: 'button', text: 'Import', onclick: openImport }),
       el('button', { class: 'btn', type: 'button', text: '+ Neu', onclick: () => openModal(null, newTaskDate()) }),
       el('button', { class: 'btn ghost', type: 'button', text: 'Abmelden', onclick: () => sb.auth.signOut() }))
   ));
@@ -485,7 +531,353 @@ async function deleteTask() {
   loadData();
 }
 
+/* ---------- Import aus Dateien ---------- */
+// Excel und Word werden im Browser gelesen, Screenshots verkleinert. Der Inhalt geht an die
+// Supabase-Funktion «import-tasks», die Claude fragt. Gespeichert wird erst nach deiner Kontrolle.
+const IMP_FN = 'import-tasks';
+const IMP_MAX_FILES = 8, IMP_MAX_IMAGES = 5, IMP_MAX_TEXT = 60000, IMP_MAX_BYTES = 15 * 1024 * 1024;
+const LIB_URLS = {
+  xlsx: 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+  mammoth: 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js'
+};
+let impStage = 'pick', impFiles = [], impProps = [], impHint = '', impError = '', impNote = '';
+let impModel = 'haiku', impColor = PALETTE[0], impRunId = 0, impReading = 0, impUid = 0;
+const libLoads = {};
+
+function loadLib(name) {
+  if (!libLoads[name]) libLoads[name] = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = LIB_URLS[name];
+    s.onload = res;
+    s.onerror = () => { delete libLoads[name]; rej(new Error('Ein Hilfsprogramm konnte nicht geladen werden. Bitte Internet prüfen.')); };
+    document.head.append(s);
+  });
+  return libLoads[name];
+}
+function htmlToText(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const clean = s => s.replace(/\s+/g, ' ').trim();
+  const out = [];
+  for (const n of doc.body.children) {
+    if (n.tagName === 'TABLE') {
+      n.querySelectorAll('tr').forEach(tr => {
+        const line = [...tr.children].map(c => clean(c.textContent)).join(' | ');
+        if (line.replace(/[|\s]/g, '')) out.push(line);
+      });
+    } else if (n.tagName === 'UL' || n.tagName === 'OL') {
+      n.querySelectorAll('li').forEach(li => { const t = clean(li.textContent); if (t) out.push('- ' + t); });
+    } else {
+      const t = clean(n.textContent);
+      if (t) out.push(t);
+    }
+  }
+  return out.join('\n');
+}
+async function imageToJpeg(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = () => rej(new Error('Das Bild «' + file.name + '» konnte nicht gelesen werden.'));
+      i.src = url;
+    });
+    const sc = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * sc)), h = Math.max(1, Math.round(img.naturalHeight * sc));
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+    g.drawImage(img, 0, 0, w, h);
+    const dataUrl = c.toDataURL('image/jpeg', 0.85);
+    return { media_type: 'image/jpeg', data: dataUrl.split(',')[1], thumb: dataUrl };
+  } finally { URL.revokeObjectURL(url); }
+}
+async function impReadFile(file) {
+  const name = file.name || 'Bild';
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  if (file.size > IMP_MAX_BYTES) throw new Error('«' + name + '» ist zu gross (höchstens 15 MB).');
+  const base = { id: ++impUid, name };
+  if ((file.type || '').startsWith('image/') || ['png', 'jpg', 'jpeg', 'heic', 'heif', 'webp', 'gif'].includes(ext)) {
+    return { ...base, kind: 'image', ...(await imageToJpeg(file)) };
+  }
+  let text = '', label = ext.toUpperCase();
+  if (['xlsx', 'xlsm', 'xls'].includes(ext)) {
+    await loadLib('xlsx');
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellNF: true });
+    const parts = [];
+    wb.SheetNames.forEach(sn => {
+      const ws = wb.Sheets[sn];
+      if (!ws || !ws['!ref']) return;
+      const rng = XLSX.utils.decode_range(ws['!ref']);
+      const lines = [];
+      for (let r = rng.s.r; r <= Math.min(rng.e.r, rng.s.r + 3000); r++) {
+        const cells = [];
+        for (let c = rng.s.c; c <= Math.min(rng.e.c, rng.s.c + 60); c++) {
+          const cell = ws[XLSX.utils.encode_cell({ r, c })];
+          let v = '';
+          if (cell) {
+            if (cell.t === 'n' && cell.z && XLSX.SSF.is_date(cell.z)) {
+              // Datum immer eindeutig als JJJJ-MM-TT weitergeben (nicht als 10/23/26)
+              const d = XLSX.SSF.parse_date_code(cell.v);
+              v = d.y + '-' + pad(d.m) + '-' + pad(d.d);
+            } else {
+              v = cell.w != null ? cell.w : (cell.v != null ? String(cell.v) : '');
+            }
+          }
+          cells.push(String(v).replace(/\s+/g, ' ').trim());
+        }
+        const line = cells.join(' | ');
+        if (line.replace(/[|\s]/g, '')) lines.push(line);
+      }
+      if (lines.length) parts.push('## Tabellenblatt «' + sn + '»\n' + lines.join('\n'));
+    });
+    text = parts.join('\n\n');
+  } else if (ext === 'docx') {
+    await loadLib('mammoth');
+    const r = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
+    text = htmlToText(r.value);
+  } else if (['txt', 'csv', 'md'].includes(ext)) {
+    text = (await file.text()).trim();
+  } else if (ext === 'doc') {
+    throw new Error('«' + name + '» ist ein altes Word-Format (.doc). Bitte in Word als .docx speichern.');
+  } else {
+    throw new Error('«' + name + '»: Dieser Dateityp wird nicht unterstützt. Erlaubt sind Excel, Word (.docx), Bilder und Textdateien.');
+  }
+  if (!text.trim()) throw new Error('In «' + name + '» wurde kein Text gefunden.');
+  return { ...base, kind: 'text', text, label };
+}
+async function impAddFiles(list) {
+  impError = '';
+  impReading++;
+  impRender();
+  for (const file of list) {
+    try {
+      if (impFiles.length >= IMP_MAX_FILES) throw new Error('Höchstens ' + IMP_MAX_FILES + ' Dateien auf einmal.');
+      const f = await impReadFile(file);
+      if (f.kind === 'image' && impFiles.filter(x => x.kind === 'image').length >= IMP_MAX_IMAGES) throw new Error('Höchstens ' + IMP_MAX_IMAGES + ' Bilder auf einmal.');
+      impFiles.push(f);
+    } catch (e) { impError = e.message; }
+  }
+  impReading--;
+  impRender();
+}
+async function fnErrorText(error) {
+  const r = error && error.context;
+  if (r && typeof r.json === 'function') {
+    if (r.status === 404) return 'Die Funktion «import-tasks» ist bei Supabase noch nicht eingerichtet.';
+    if (r.status === 401) {
+      try { const j = await r.clone().json(); if (j && j.error) return j.error; } catch (e) {}
+      return 'Die Anmeldung wurde abgelehnt (Code 401). Bitte neu anmelden. Hilft das nicht: In Supabase bei der Funktion «Verify JWT» ausschalten.';
+    }
+    try { const j = await r.json(); if (j && j.error) return j.error; } catch (e) {}
+    return 'Fehler bei der Funktion (Code ' + r.status + ').';
+  }
+  return 'Keine Verbindung zur Funktion. Bitte Internet prüfen.';
+}
+const impDup = p => !!p.start_date && tasks.some(t => t.start_date === p.start_date && t.title.trim().toLowerCase() === p.title.trim().toLowerCase());
+
+async function impRun() {
+  if (!impFiles.length || impReading) return;
+  const id = ++impRunId;
+  impError = '';
+  impStage = 'busy';
+  impRender();
+  let text = '', budget = IMP_MAX_TEXT, cut = false;
+  for (const f of impFiles) if (f.kind === 'text') {
+    if (budget <= 0) { cut = true; continue; }
+    let t = f.text;
+    if (t.length > budget) { t = t.slice(0, budget); cut = true; }
+    budget -= t.length;
+    text += '\n\n=== Datei: ' + f.name + ' ===\n' + t;
+  }
+  const images = impFiles.filter(f => f.kind === 'image').map(f => ({ media_type: f.media_type, data: f.data }));
+  try {
+    const { data, error } = await sb.functions.invoke(IMP_FN, { body: { model: impModel, today: todayStr(), text, images, note: impNote } });
+    if (id !== impRunId) return;
+    if (error) throw new Error(await fnErrorText(error));
+    if (!data || data.error || !Array.isArray(data.tasks)) throw new Error((data && data.error) || 'Die Antwort war leer. Bitte noch einmal versuchen.');
+    impProps = data.tasks.map(t => {
+      const p = {
+        title: String(t.title || ''), description: String(t.description || ''),
+        start_date: t.start_date || null, end_date: t.end_date || t.start_date || null,
+        is_exam: !!t.is_exam, repeat_weekly: !!t.repeat_weekly
+      };
+      p.miss = !p.start_date;
+      p.dup = impDup(p);
+      p.on = !p.miss && !p.dup;
+      return p;
+    });
+    impHint = ((data.hinweis || '') + (cut ? ' Der Text war sehr lang, es wurde nur der Anfang gelesen.' : '')).trim();
+    impStage = 'review';
+  } catch (e) {
+    if (id !== impRunId) return;
+    impError = e.message || 'Unbekannter Fehler';
+    impStage = 'pick';
+  }
+  impRender();
+}
+
+function impUpdateCount() {
+  const n = impProps.filter(p => p.on).length;
+  const b = $('#imp-go');
+  b.textContent = n === 1 ? '1 Aufgabe speichern' : n + ' Aufgaben speichern';
+  b.disabled = n === 0;
+}
+function propRow(p) {
+  const row = el('div', { class: 'prop' + (p.on ? '' : ' off') + (p.miss && !p.start_date ? ' miss' : '') });
+  const cb = el('input', { type: 'checkbox', 'aria-label': 'Aufgabe übernehmen' });
+  cb.checked = p.on;
+  cb.addEventListener('change', () => { p.on = cb.checked; row.classList.toggle('off', !p.on); impUpdateCount(); });
+  const ti = el('input', { class: 'ptitle', maxlength: '120', 'aria-label': 'Titel', autocomplete: 'off' });
+  ti.value = p.title;
+  ti.addEventListener('input', () => { p.title = ti.value; });
+  const de = el('textarea', { class: 'pdesc', placeholder: 'Beschreibung', 'aria-label': 'Beschreibung' });
+  de.value = p.description;
+  de.addEventListener('input', () => { p.description = de.value; });
+  const s = el('input', { type: 'date' }), e = el('input', { type: 'date' });
+  s.value = p.start_date || ''; e.value = p.end_date || '';
+  s.addEventListener('change', () => {
+    p.start_date = s.value || null;
+    if (p.start_date && (!p.end_date || p.end_date < p.start_date)) { p.end_date = p.start_date; e.value = p.end_date; }
+    row.classList.toggle('miss', !p.start_date);
+    if (p.miss && p.start_date) { p.miss = false; p.on = true; cb.checked = true; row.classList.remove('off'); }
+    if (p.start_date && missBadge) missBadge.remove();
+    impUpdateCount();
+  });
+  e.addEventListener('change', () => { p.end_date = e.value || null; });
+  const ex = el('input', { type: 'checkbox' }); ex.checked = p.is_exam;
+  ex.addEventListener('change', () => { p.is_exam = ex.checked; });
+  const rp = el('input', { type: 'checkbox' }); rp.checked = p.repeat_weekly;
+  rp.addEventListener('change', () => { p.repeat_weekly = rp.checked; });
+  const missBadge = p.miss && !p.start_date ? el('div', { class: 'badge', text: 'Datum fehlt – bitte wählen' }) : null;
+  [
+    el('div', { class: 'ptop' }, cb, ti),
+    missBadge,
+    p.dup ? el('div', { class: 'badge dup', text: 'Gibt es schon' }) : null,
+    de,
+    el('div', { class: 'row' }, el('label', null, 'Von', s), el('label', null, 'Bis', e)),
+    el('div', { class: 'opts' },
+      el('label', { class: 'opt' }, ex, 'Prüfung'),
+      el('label', { class: 'opt' }, rp, 'Jede Woche'))
+  ].forEach(n => { if (n) row.append(n); });
+  return row;
+}
+function impRender() {
+  const body = $('#imp-body'), go = $('#imp-go'), close = $('#imp-close');
+  body.replaceChildren();
+  close.textContent = impStage === 'review' ? 'Zurück' : 'Abbrechen';
+  go.hidden = impStage === 'busy';
+  if (impStage === 'busy') {
+    body.append(el('div', { class: 'imp-busy' }, el('div', { class: 'spin' }), 'Die KI liest deine Dateien …', el('br'), el('small', { text: 'Das dauert meist 5 bis 20 Sekunden.' })));
+    return;
+  }
+  if (impStage === 'review') {
+    go.textContent = 'Speichern';
+    if (impHint) body.append(el('div', { class: 'imp-hint', text: impHint }));
+    if (!impProps.length) {
+      body.append(el('div', { class: 'empty', text: 'Es wurden keine Aufgaben gefunden.' }));
+      go.hidden = true;
+      return;
+    }
+    body.append(el('div', { class: 'imp-sec', text: impProps.length === 1 ? '1 Vorschlag – bitte prüfen' : impProps.length + ' Vorschläge – bitte prüfen' }));
+    const colors = el('div', { class: 'colors' }, el('div', { class: 'lbl', text: 'Farbe für alle (Prüfungen bleiben rot)' }));
+    const setC = c => {
+      impColor = safeColor(c);
+      colors.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', b.dataset.c.toLowerCase() === impColor.toLowerCase()));
+      custom.value = impColor;
+    };
+    const custom = el('input', { type: 'color', 'aria-label': 'Eigene Farbe wählen' });
+    custom.addEventListener('input', () => setC(custom.value));
+    PALETTE.forEach(c => colors.append(el('button', { class: 'sw', type: 'button', 'data-c': c, 'aria-label': 'Farbe ' + c, style: 'background:' + c, onclick: () => setC(c) })));
+    colors.append(custom);
+    setC(impColor);
+    body.append(colors);
+    impProps.forEach(p => body.append(propRow(p)));
+    impUpdateCount();
+    return;
+  }
+  // Auswahl der Dateien
+  go.textContent = 'Aufgaben erkennen';
+  go.disabled = !impFiles.length || impReading > 0;
+  const input = el('input', { type: 'file', multiple: '', accept: '.xlsx,.xlsm,.xls,.docx,.txt,.csv,image/*', 'aria-label': 'Dateien wählen' });
+  input.addEventListener('change', () => { const l = [...input.files]; input.value = ''; if (l.length) impAddFiles(l); });
+  body.append(
+    el('p', { class: 'imp-help', text: 'Wähle Excel-Tabellen, Word-Dokumente (.docx) oder Screenshots. Die KI sucht darin nach Aufgaben und Prüfungen. Du kontrollierst alles, bevor etwas gespeichert wird.' }),
+    el('label', { class: 'btn ghost imp-pick' }, impReading ? 'Wird gelesen …' : 'Dateien wählen', input)
+  );
+  if (impError) body.append(el('div', { class: 'imp-hint', style: 'color:var(--danger);margin-top:12px', text: impError }));
+  if (impFiles.length) {
+    body.append(el('div', { class: 'imp-files' }, impFiles.map(f => el('div', { class: 'imp-file' },
+      f.kind === 'image' ? el('img', { src: f.thumb, alt: '' }) : el('div', { class: 'ico', text: f.label }),
+      el('span', { class: 'nm', text: f.name }),
+      el('button', { type: 'button', 'aria-label': 'Entfernen', text: '×', onclick: () => { impFiles = impFiles.filter(x => x.id !== f.id); impRender(); } })))));
+  }
+  body.append(el('div', { class: 'imp-sec', text: 'Genauigkeit' }));
+  const seg = el('div', { class: 'seg' });
+  [['haiku', 'Schnell', 'Meist genug'], ['sonnet', 'Genauer', 'Für unklare Screenshots']].forEach(([v, t, sm]) => {
+    const r = el('input', { type: 'radio', name: 'imp-model', value: v });
+    r.checked = impModel === v;
+    const lab = el('label', { class: impModel === v ? 'sel' : '' }, r, t, el('small', { text: sm }));
+    r.addEventListener('change', () => { impModel = v; seg.querySelectorAll('label').forEach(l => l.classList.toggle('sel', l === lab)); });
+    seg.append(lab);
+  });
+  body.append(seg);
+  const note = el('textarea', { class: 'imp-note', placeholder: 'z. B. Fach: Mathe, Klasse 8b', 'aria-label': 'Hinweis' });
+  note.value = impNote;
+  note.addEventListener('input', () => { impNote = note.value; });
+  body.append(el('div', { class: 'imp-sec', text: 'Hinweis für die KI (freiwillig)' }), note);
+  if (!('ontouchstart' in window)) body.append(el('p', { class: 'imp-help', style: 'margin:14px 0 0;font-size:13px', text: 'Tipp: Screenshots kannst du hier auch direkt mit Cmd+V einfügen.' }));
+}
+function openImport() {
+  impStage = 'pick'; impFiles = []; impProps = []; impHint = ''; impError = '';
+  impRender();
+  $('#imp').hidden = false;
+  document.body.classList.add('lock');
+  $('#imp .sheet').scrollTop = 0;
+}
+function closeImport(force) {
+  if (!force && impStage === 'review' && impProps.some(p => p.on) && !confirm('Die Vorschläge wirklich verwerfen?')) return;
+  impRunId++;
+  impReading = 0;
+  $('#imp').hidden = true;
+  document.body.classList.remove('lock');
+  impFiles = []; impProps = [];
+}
+async function impSave() {
+  const sel = impProps.filter(p => p.on);
+  if (!sel.length) { toast('Nichts ausgewählt'); return; }
+  for (const p of sel) {
+    if (!p.title.trim()) { toast('Eine Aufgabe hat keinen Titel'); return; }
+    if (!p.start_date) { toast('Bitte bei «' + p.title.trim() + '» ein Datum wählen'); return; }
+  }
+  const rows = sel.map(p => ({
+    title: p.title.trim().slice(0, 120), description: p.description || '', color: impColor,
+    start_date: p.start_date, end_date: (p.end_date && p.end_date >= p.start_date) ? p.end_date : p.start_date,
+    is_exam: !!p.is_exam, repeat_weekly: !!p.repeat_weekly
+  }));
+  const btn = $('#imp-go');
+  btn.disabled = true;
+  const { error } = await sb.from('tasks').insert(rows);
+  btn.disabled = false;
+  if (error) { toast('Fehler beim Speichern: ' + error.message); return; }
+  const first = rows.map(r => r.start_date).sort()[0];
+  closeImport(true);
+  if (!rows.some(r => samePage(cur, r.start_date))) cur = first;
+  toast(rows.length === 1 ? '1 Aufgabe gespeichert' : rows.length + ' Aufgaben gespeichert');
+  loadData();
+}
+
 /* ---------- Start ---------- */
+$('#imp-close').addEventListener('click', () => {
+  if (impStage === 'review') { impStage = 'pick'; impRender(); } else closeImport();
+});
+$('#imp-go').addEventListener('click', () => { if (impStage === 'review') impSave(); else impRun(); });
+document.addEventListener('paste', ev => {
+  if ($('#imp').hidden || impStage !== 'pick') return;
+  const files = [...((ev.clipboardData && ev.clipboardData.files) || [])].filter(f => f.type.startsWith('image/'));
+  if (files.length) { ev.preventDefault(); impAddFiles(files); }
+});
 PALETTE.forEach(c => {
   $('#m-swatches').append(el('button', { class: 'sw', type: 'button', 'data-c': c, 'aria-label': 'Farbe ' + c, style: 'background:' + c, onclick: () => setColor(c) }));
 });
